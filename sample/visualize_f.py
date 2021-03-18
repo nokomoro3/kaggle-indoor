@@ -131,4 +131,6 @@ def visualize_heatmap(position, value, floor_plan_filename, width_meter, height_
     if show:
         fig.show()
 
+    fig.write_html("sample2.html")
+
     return fig
