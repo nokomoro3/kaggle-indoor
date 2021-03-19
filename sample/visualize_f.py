@@ -3,8 +3,11 @@ from PIL import Image
 
 
 def save_figure_to_html(fig, filename):
-    fig.write_html(filename)
 
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    fig.write_html(str(filename))
+
+    return
 
 def visualize_trajectory(trajectory, floor_plan_filename, width_meter, height_meter, title=None, mode='lines + markers + text', show=False):
     fig = go.Figure()
@@ -76,8 +79,6 @@ def visualize_trajectory(trajectory, floor_plan_filename, width_meter, height_me
     if show:
         fig.show()
 
-    fig.write_html("sample.html")
-
     return fig
 
 
@@ -130,7 +131,5 @@ def visualize_heatmap(position, value, floor_plan_filename, width_meter, height_
 
     if show:
         fig.show()
-
-    fig.write_html("sample2.html")
 
     return fig

@@ -1,11 +1,12 @@
 import json
 import pathlib
+import re
 
 import pandas as pd
 import numpy as np
 
 from sample.io_f import read_data_file
-from sample.visualize_f import visualize_trajectory, visualize_heatmap
+from sample.visualize_f import visualize_trajectory, visualize_heatmap, save_figure_to_html
 from sample.main import calibrate_magnetic_wifi_ibeacon_to_position
 from sample.main import extract_magnetic_strength, extract_wifi_rssi, extract_wifi_count, extract_ibeacon_rssi
 
@@ -13,24 +14,25 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    sub_df = pd.read_csv(input_path.joinpath("sample_submission.csv"))
-    sub_df["site"]      = [i.split("_")[0] for i in sub_df["site_path_timestamp"]]
-    sub_df["path"]      = [i.split("_")[1] for i in sub_df["site_path_timestamp"]]
-    sub_df["timestamp"] = [i.split("_")[2] for i in sub_df["site_path_timestamp"]]
+    if input_path.joinpath("sample_submission.csv").exists():
+        sub_df = pd.read_csv(input_path.joinpath("sample_submission.csv"))
+        sub_df["site"]      = [i.split("_")[0] for i in sub_df["site_path_timestamp"]]
+        sub_df["path"]      = [i.split("_")[1] for i in sub_df["site_path_timestamp"]]
+        sub_df["timestamp"] = [i.split("_")[2] for i in sub_df["site_path_timestamp"]]
 
-    site_list_tt = sorted(sub_df.site.unique())
-    with open(output_path.joinpath('site_list_tt.json'), 'wt') as fp:
-        json.dump(site_list_tt, fp, indent=4)
+        site_list_tt = sorted(sub_df.site.unique())
+        with open(output_path.joinpath('site_list_tt.json'), 'wt') as fp:
+            json.dump(site_list_tt, fp, indent=4)
     
-    site_list_tr = [str(i).split("/")[-2]+"_"+str(i).split("/")[-1] for i in sorted([*input_path.joinpath('train').glob("*/*")])]
+    site_list_tr = [re.split('[\\\\/]', str(i))[-2] +"_"+ re.split('[\\\\/]', str(i))[-1] for i in sorted([*input_path.joinpath('train').glob("*/*")])]
     with open(output_path.joinpath('site_list_tr.json'), 'wt') as fp:
         json.dump(site_list_tr, fp, indent=4)
 
-    site_list_meta = [str(i).split("/")[-2]+"_"+str(i).split("/")[-1] for i in sorted([*input_path.joinpath('metadata').glob("*/*")])]
+    site_list_meta = [re.split('[\\\\/]', str(i))[-2] +"_"+ re.split('[\\\\/]', str(i))[-1] for i in sorted([*input_path.joinpath('metadata').glob("*/*")])]
     with open(output_path.joinpath('site_list_meta.json'), 'wt') as fp:
         json.dump(site_list_meta, fp, indent=4)
 
-    floor_category = sorted(list(set([str(i).split("/")[-1] for i in sorted([*input_path.joinpath('metadata').glob("*/*")])])))
+    floor_category = sorted(list(set([re.split('[\\\\/]', str(i))[-1] for i in sorted([*input_path.joinpath('metadata').glob("*/*")])])))
     with open(output_path.joinpath('floor_category.json'), 'wt') as fp:
         json.dump(floor_category, fp, indent=4)
 
@@ -45,9 +47,9 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     # Removes timestamp (we only need the coordinates)
     trajectory = trajectory[:, 1:3]
 
-    site = str(path_file).split("/")[-3]
-    floor_number = str(path_file).split("/")[-2]
-    path_name = str(path_file).split("/")[-1]
+    site = re.split('[\\\\/]', str(path_file))[-3]
+    floor_number = re.split('[\\\\/]', str(path_file))[-2]
+    path_name = re.split('[\\\\/]', str(path_file))[-1]
     floor_image = input_path.joinpath('metadata', f'{site}', f'{floor_number}', 'floor_image.png')
     floor_info = input_path.joinpath('metadata', f'{site}', f'{floor_number}', 'floor_info.json')
     with open(floor_info) as fp:
@@ -55,16 +57,17 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     width_meter = json_data["map_info"]["width"]
     height_meter = json_data["map_info"]["height"]
 
-    visualize_trajectory(
+    fig = visualize_trajectory(
         trajectory = trajectory,
         floor_plan_filename = floor_image,
         width_meter = width_meter,
         height_meter = height_meter,
         title = f"{path_name}"
     )
+    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'{path_name}', 'trajectory.html'))
 
     mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-        [str(f) for f in path_file_list if f"{site}/{floor_number}" in str(f)] # path of a floor wheel data
+        [str(f) for f in path_file_list if str(pathlib.Path("").joinpath(site,floor_number)) in str(f)] # path of a floor wheel data
         # [path_file] # single path data
     )
 
@@ -75,7 +78,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     heat_values = np.array(list(magnetic_strength.values()))
 
     # Visualize the heatmap
-    visualize_heatmap(
+    fig = visualize_heatmap(
         heat_positions, 
         heat_values, 
         floor_image,
@@ -84,6 +87,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
         colorbar_title='mu tesla', 
         title='Magnetic Strength',
     )
+    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'magneticStrength.html'))
 
     # Get WiFi data
     wifi_rssi = extract_wifi_rssi(mwi_datas)
@@ -98,7 +102,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     heat_values = heat_values[mask]
 
     # The heatmap
-    visualize_heatmap(
+    fig = visualize_heatmap(
         heat_positions, 
         heat_values, 
         floor_image, 
@@ -107,6 +111,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
         colorbar_title='count', 
         title=f'WiFi Count',
     )
+    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'wifiCount.html'))
 
     # Getting the iBeacon data
     ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
@@ -118,7 +123,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     heat_values = np.array(list(ibeacon_rssi[target_ibeacon].values()))[:, 0]
 
     # The heatmap
-    visualize_heatmap(
+    fig = visualize_heatmap(
         heat_positions, 
         heat_values, 
         floor_image, 
@@ -127,8 +132,9 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
         colorbar_title='dBm', 
         title='iBeacon RSSE',
     )
+    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'ibeaconRsse.html'))
 
     return
 
 if __name__ == '__main__':
-    main(pathlib.Path('./indata'), pathlib.Path('./outdata'))
+    main(pathlib.Path('./indata_mini'), pathlib.Path('./outdata_mini'))
