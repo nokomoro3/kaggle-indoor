@@ -2,6 +2,13 @@ import plotly.graph_objs as go
 from PIL import Image
 
 
+def save_figure_to_image(fig, filename):
+
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    fig.write_image(str(filename))
+
+    return
+
 def save_figure_to_html(fig, filename):
 
     filename.parent.mkdir(parents=True, exist_ok=True)

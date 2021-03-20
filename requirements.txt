@@ -3,3 +3,6 @@ pandas
 scipy
 pillow
 plotly
+psutil
+requests
+kaleido

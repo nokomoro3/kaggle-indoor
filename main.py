@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 from sample.io_f import read_data_file
-from sample.visualize_f import visualize_trajectory, visualize_heatmap, save_figure_to_html
+from sample.visualize_f import visualize_trajectory, visualize_heatmap, save_figure_to_html, save_figure_to_image
 from sample.main import calibrate_magnetic_wifi_ibeacon_to_position
 from sample.main import extract_magnetic_strength, extract_wifi_rssi, extract_wifi_count, extract_ibeacon_rssi
 
@@ -75,6 +75,10 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
         # [path_file] # single path data
     )
 
+    step_positions = np.array(list(mwi_datas.keys()))
+    fig = visualize_trajectory(step_positions, floor_image, width_meter, height_meter, mode='markers', title='Step Position')
+    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'stepPosition.html'))
+
     # Extracting the magnetic strength
     magnetic_strength = extract_magnetic_strength(mwi_datas)
     
@@ -93,10 +97,7 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     )
     save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'magneticStrength.html'))
 
-    # Get WiFi data
-    wifi_rssi = extract_wifi_rssi(mwi_datas)
-    print(f'This floor has {len(wifi_rssi.keys())} wifi aps (access points).')
-
+    # Wifi Count
     wifi_counts = extract_wifi_count(mwi_datas)
     heat_positions = np.array(list(wifi_counts.keys()))
     heat_values = np.array(list(wifi_counts.values()))
@@ -117,26 +118,47 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     )
     save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'wifiCount.html'))
 
+    # Get WiFi data
+    wifi_rssi = extract_wifi_rssi(mwi_datas)
+    print(f'This floor has {len(wifi_rssi.keys())} wifi aps (access points).')
+
+    for target_bssid in list(wifi_rssi.keys()):
+        heat_positions = np.array(list(wifi_rssi[target_bssid].keys()))
+        heat_values = np.array(list(wifi_rssi[target_bssid].values()))[:, 0]
+
+        # The heatmap
+        fig = visualize_heatmap(
+            heat_positions, 
+            heat_values, 
+            floor_image, 
+            width_meter, 
+            height_meter, 
+            colorbar_title='dBm', 
+            title='WiFi RSSI',
+        )
+        # save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'wifiRssi_{target_bssid}.html'))
+        save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'wifiRssi_{target_bssid}.png'))
+
     # Getting the iBeacon data
     ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
     print(f'This floor has {len(ibeacon_rssi.keys())} ibeacons.')
 
-    ibeacon_ummids = list(ibeacon_rssi.keys())
-    target_ibeacon = ibeacon_ummids[0]
-    heat_positions = np.array(list(ibeacon_rssi[target_ibeacon].keys()))
-    heat_values = np.array(list(ibeacon_rssi[target_ibeacon].values()))[:, 0]
+    for target_ibeacon in list(ibeacon_rssi.keys()):
+        heat_positions = np.array(list(ibeacon_rssi[target_ibeacon].keys()))
+        heat_values = np.array(list(ibeacon_rssi[target_ibeacon].values()))[:, 0]
 
-    # The heatmap
-    fig = visualize_heatmap(
-        heat_positions, 
-        heat_values, 
-        floor_image, 
-        width_meter, 
-        height_meter, 
-        colorbar_title='dBm', 
-        title='iBeacon RSSE',
-    )
-    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'ibeaconRsse.html'))
+        # The heatmap
+        fig = visualize_heatmap(
+            heat_positions, 
+            heat_values, 
+            floor_image, 
+            width_meter, 
+            height_meter, 
+            colorbar_title='dBm', 
+            title='iBeacon RSSI',
+        )
+        # save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'ibeaconRssi_{target_ibeacon}.html'))
+        save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'ibeaconRssi_{target_ibeacon}.png'))
 
     return
 

@@ -208,7 +208,7 @@ def extract_wifi_count(mwi_datas):
         # print(f'Position: {position_key}')
 
         wifi_data = mwi_datas[position_key]['wifi']
-        count = np.unique(wifi_data[:, 2]).shape[0]
+        count = np.unique(wifi_data[:, 2]).shape[0] # BSSIDの数
         wifi_counts[position_key] = count
 
     return wifi_counts
