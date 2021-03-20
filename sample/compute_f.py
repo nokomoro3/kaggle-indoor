@@ -35,32 +35,36 @@ def split_ts_seq(ts_seq, sep_ts):
 
 def correct_trajectory(original_xys, end_xy):
     """
+    開始点から相対移動で計算された軌跡を実際の終点を使って補正する。
 
-    :param original_xys: numpy ndarray, shape(N, 2)
-    :param end_xy: numpy ndarray, shape(1, 2)
-    :return:
+    Args:
+        original_xys ([type]): [description], shape(N, 2)
+        end_xy ([type]): [description], shape(1, 2)
+
+    Returns:
+        [type]: [description]
     """
     corrected_xys = np.zeros((0, 2))
 
-    A = original_xys[0, :]
-    B = end_xy
-    Bp = original_xys[-1, :]
+    A = original_xys[0, :] # 開始点
+    B = end_xy # 終了点
+    Bp = original_xys[-1, :] # 予想の終了点
 
     angle_BAX = np.arctan2(B[1] - A[1], B[0] - A[0])
     angle_BpAX = np.arctan2(Bp[1] - A[1], Bp[0] - A[0])
-    angle_BpAB = angle_BpAX - angle_BAX
-    AB = np.sqrt(np.sum((B - A) ** 2))
-    ABp = np.sqrt(np.sum((Bp - A) ** 2))
+    angle_BpAB = angle_BpAX - angle_BAX  # BpとBの角度誤差
+    AB = np.sqrt(np.sum((B - A) ** 2))   # A-B距離
+    ABp = np.sqrt(np.sum((Bp - A) ** 2)) # A-Bp距離
 
     corrected_xys = np.append(corrected_xys, [A], 0)
     for i in np.arange(1, np.size(original_xys, 0)):
         angle_CpAX = np.arctan2(original_xys[i, 1] - A[1], original_xys[i, 0] - A[0])
 
-        angle_CAX = angle_CpAX - angle_BpAB
+        angle_CAX = angle_CpAX - angle_BpAB # 角度誤差を差し引き、真の角度を計算
 
         ACp = np.sqrt(np.sum((original_xys[i, :] - A) ** 2))
 
-        AC = ACp * AB / ABp
+        AC = ACp * AB / ABp # 距離誤差は累積と見なし、最終的な距離誤差の比率を乗算
 
         delta_C = np.array([AC * np.cos(angle_CAX), AC * np.sin(angle_CAX)])
 
@@ -90,8 +94,8 @@ def correct_positions(rel_positions, reference_positions):
 
     corrected_positions = np.zeros((0, 3))
     for i, rel_ps in enumerate(rel_positions_list):
-        start_position = reference_positions[i]
-        end_position = reference_positions[i + 1]
+        start_position = reference_positions[i] # 開始点
+        end_position = reference_positions[i + 1] # 終了点
         
         # init
         abs_ps = np.zeros(rel_ps.shape)
@@ -526,7 +530,7 @@ def compute_step_positions(acce_datas, ahrs_datas, posi_datas):
     # 相対的な移動距離計算
     rel_positions = compute_rel_positions(stride_lengths, step_headings)
 
-
+    # 正解から正しい移動距離を計算
     step_positions = correct_positions(rel_positions, posi_datas)
 
     return step_positions

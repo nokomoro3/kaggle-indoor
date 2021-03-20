@@ -28,25 +28,34 @@ def calibrate_magnetic_wifi_ibeacon_to_position(path_file_list):
     for path_filename in path_file_list:
         print(f'Processing {path_filename}...')
 
+        # ファイルをパース
         path_datas = read_data_file(path_filename)
-        acce_datas = path_datas.acce
-        magn_datas = path_datas.magn
-        ahrs_datas = path_datas.ahrs
-        wifi_datas = path_datas.wifi
-        ibeacon_datas = path_datas.ibeacon
-        posi_datas = path_datas.waypoint
+        acce_datas = path_datas.acce       # TYPE_ACCELEROMETER
+        magn_datas = path_datas.magn       # TYPE_MAGNETIC_FIELD
+        ahrs_datas = path_datas.ahrs       # TYPE_ROTATION_VECTOR
+        wifi_datas = path_datas.wifi       # TYPE_WIFI
+        ibeacon_datas = path_datas.ibeacon # TYPE_BEACON
+        posi_datas = path_datas.waypoint   # TYPE_WAYPOINT
 
+        # 加速度センサ、回転ベクトル、正解位置から1stepの位置を計算
         step_positions = compute_step_positions(acce_datas, ahrs_datas, posi_datas)
         # visualize_trajectory(posi_datas[:, 1:3], floor_plan_filename, width_meter, height_meter, title='Ground Truth', show=True)
         # visualize_trajectory(step_positions[:, 1:3], floor_plan_filename, width_meter, height_meter, title='Step Position', show=True)
 
         if wifi_datas.size != 0:
             sep_tss = np.unique(wifi_datas[:, 0].astype(float))
+
+            # sep_tssはwifi_datasと同じ間隔だが、wifiが複数あるので同時刻のものを取得する。
+            # データ数は同時刻のBSSIDの数と同じとなる。
             wifi_datas_list = split_ts_seq(wifi_datas, sep_tss)
+
             for wifi_ds in wifi_datas_list:
+
+                # 最も時刻が近いstep_positionの座標を取得
                 diff = np.abs(step_positions[:, 0] - float(wifi_ds[0, 0]))
                 index = np.argmin(diff)
                 target_xy_key = tuple(step_positions[index, 1:3])
+
                 if target_xy_key in mwi_datas:
                     mwi_datas[target_xy_key]['wifi'] = np.append(mwi_datas[target_xy_key]['wifi'], wifi_ds, axis=0)
                 else:
@@ -58,11 +67,17 @@ def calibrate_magnetic_wifi_ibeacon_to_position(path_file_list):
 
         if ibeacon_datas.size != 0:
             sep_tss = np.unique(ibeacon_datas[:, 0].astype(float))
+
+            # こちらもwifi同様、複数の可能性がある。
             ibeacon_datas_list = split_ts_seq(ibeacon_datas, sep_tss)
+
             for ibeacon_ds in ibeacon_datas_list:
+
+                # 最も時刻が近いstep_positionの座標を取得
                 diff = np.abs(step_positions[:, 0] - float(ibeacon_ds[0, 0]))
                 index = np.argmin(diff)
                 target_xy_key = tuple(step_positions[index, 1:3])
+
                 if target_xy_key in mwi_datas:
                     mwi_datas[target_xy_key]['ibeacon'] = np.append(mwi_datas[target_xy_key]['ibeacon'], ibeacon_ds, axis=0)
                 else:
@@ -73,11 +88,17 @@ def calibrate_magnetic_wifi_ibeacon_to_position(path_file_list):
                     }
 
         sep_tss = np.unique(magn_datas[:, 0].astype(float))
+
+        # これは同時刻に複数ということはなさそうだが...
         magn_datas_list = split_ts_seq(magn_datas, sep_tss)
+
         for magn_ds in magn_datas_list:
+
+            # 最も時刻が近いstep_positionの座標を取得
             diff = np.abs(step_positions[:, 0] - float(magn_ds[0, 0]))
             index = np.argmin(diff)
             target_xy_key = tuple(step_positions[index, 1:3])
+
             if target_xy_key in mwi_datas:
                 mwi_datas[target_xy_key]['magnetic'] = np.append(mwi_datas[target_xy_key]['magnetic'], magn_ds, axis=0)
             else:
@@ -96,13 +117,36 @@ def extract_magnetic_strength(mwi_datas):
         # print(f'Position: {position_key}')
 
         magnetic_data = mwi_datas[position_key]['magnetic']
-        magnetic_s = np.mean(np.sqrt(np.sum(magnetic_data[:, 1:4] ** 2, axis=1)))
+        magnetic_s = np.mean(np.sqrt(np.sum(magnetic_data[:, 1:4] ** 2, axis=1))) # 3軸から強さを求める
         magnetic_strength[position_key] = magnetic_s
 
     return magnetic_strength
 
 
 def extract_wifi_rssi(mwi_datas):
+    """[summary]
+
+    Args:
+        mwi_datas ([type]): [description]
+
+    Returns:
+        [type]: wifi_rssi情報
+        wifi_rssi = {
+            "bssid1":
+            {
+                "(x1,y1)": rssi_ave, rssi_ave_count,
+                "(x2,y2)": rssi_ave, rssi_ave_count,
+                ...
+            }
+            "bssid2":
+            {
+                "(x1,y1)": rssi_ave, rssi_ave_count,
+                "(x2,y2)": rssi_ave, rssi_ave_count,
+                ...
+            }
+            ...
+        }
+    """
     wifi_rssi = {}
     for position_key in mwi_datas:
         # print(f'Position: {position_key}')
@@ -117,8 +161,8 @@ def extract_wifi_rssi(mwi_datas):
                 if position_key in position_rssi:
                     old_rssi = position_rssi[position_key][0]
                     old_count = position_rssi[position_key][1]
-                    position_rssi[position_key][0] = (old_rssi * old_count + rssi) / (old_count + 1)
-                    position_rssi[position_key][1] = old_count + 1
+                    position_rssi[position_key][0] = (old_rssi * old_count + rssi) / (old_count + 1) # 同じ時刻同じBSSIDであれば平均を計算
+                    position_rssi[position_key][1] = old_count + 1 # 平均の母数を記憶
                 else:
                     position_rssi[position_key] = np.array([rssi, 1])
             else:
