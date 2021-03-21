@@ -71,8 +71,8 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'{path_name}', 'trajectory.html'))
 
     mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-        [str(f) for f in path_file_list if str(pathlib.Path("").joinpath(site,floor_number)) in str(f)] # path of a floor wheel data
-        # [path_file] # single path data
+        # [str(f) for f in path_file_list if str(pathlib.Path("").joinpath(site,floor_number)) in str(f)] # path of a floor wheel data
+        [path_file] # single path data
     )
 
     step_positions = np.array(list(mwi_datas.keys()))
@@ -163,5 +163,5 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     return
 
 if __name__ == '__main__':
-    # main(pathlib.Path('./indata_mini'), pathlib.Path('./outdata_mini'))
-    main(pathlib.Path('./indata'), pathlib.Path('./outdata'))
+    main(pathlib.Path('./indata_mini'), pathlib.Path('./outdata_mini'))
+    # main(pathlib.Path('./indata'), pathlib.Path('./outdata'))
