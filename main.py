@@ -41,127 +41,149 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     with open(output_path.joinpath('floor_category.json'), 'wt') as fp:
         json.dump(floor_category, fp, indent=4)
 
-    # 1サンプルの学習データ確認
-    path_file_list = [*input_path.joinpath('train').glob("**/*.txt")]
-    path_file = path_file_list[0]
-    example = read_data_file(path_file)
 
-    # サンプルの各種情報取得
-    site = re.split('[\\\\/]', str(path_file))[-3]
-    floor_number = re.split('[\\\\/]', str(path_file))[-2]
-    path_name = re.split('[\\\\/]', str(path_file))[-1]
-    floor_image = input_path.joinpath('metadata', f'{site}', f'{floor_number}', 'floor_image.png')
-    floor_info = input_path.joinpath('metadata', f'{site}', f'{floor_number}', 'floor_info.json')
-    with open(floor_info) as fp:
-        json_data = json.load(fp)
-    width_meter = json_data["map_info"]["width"]
-    height_meter = json_data["map_info"]["height"]
+    site_dir_list = [*input_path.joinpath('train').glob("*")]
 
-    # 軌道の可視化
-    trajectory = example.waypoint
-    trajectory = trajectory[:, 1:3] # Removes timestamp (we only need the coordinates)
+    for site_dir in site_dir_list:
+        site = site_dir.name
 
-    fig = visualize_trajectory(
-        trajectory = trajectory,
-        floor_plan_filename = floor_image,
-        width_meter = width_meter,
-        height_meter = height_meter,
-        title = f"{path_name}"
-    )
-    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'{path_name}', 'trajectory.html'))
+        floor_dir_list = [*site_dir.glob("*")]
+        for floor_dir in floor_dir_list:
+            floor = floor_dir.name
 
-    mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-        # [str(f) for f in path_file_list if str(pathlib.Path("").joinpath(site,floor_number)) in str(f)] # path of a floor wheel data
-        [path_file] # single path data
-    )
+            floor_image = input_path.joinpath('metadata', f'{site}', f'{floor}', 'floor_image.png')
+            floor_info = input_path.joinpath('metadata', f'{site}', f'{floor}', 'floor_info.json')
 
-    step_positions = np.array(list(mwi_datas.keys()))
-    fig = visualize_trajectory(step_positions, floor_image, width_meter, height_meter, mode='markers', title='Step Position')
-    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'stepPosition.html'))
+            with open(floor_info) as fp:
+                json_data = json.load(fp)
+            width_meter = json_data["map_info"]["width"]
+            height_meter = json_data["map_info"]["height"]
 
-    # Extracting the magnetic strength
-    magnetic_strength = extract_magnetic_strength(mwi_datas)
-    
-    heat_positions = np.array(list(magnetic_strength.keys()))
-    heat_values = np.array(list(magnetic_strength.values()))
+            path_file_list = [*floor_dir.glob("*.txt")]
 
-    # Visualize the heatmap
-    fig = visualize_heatmap(
-        heat_positions, 
-        heat_values, 
-        floor_image,
-        width_meter, 
-        height_meter, 
-        colorbar_title='mu tesla', 
-        title='Magnetic Strength',
-    )
-    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'magneticStrength.html'))
+            for path_file in path_file_list:
 
-    # Wifi Count
-    wifi_counts = extract_wifi_count(mwi_datas)
-    heat_positions = np.array(list(wifi_counts.keys()))
-    heat_values = np.array(list(wifi_counts.values()))
-    # filter out positions that no wifi detected
-    mask = heat_values != 0
-    heat_positions = heat_positions[mask]
-    heat_values = heat_values[mask]
+                path_name = re.split('[\\\\/]', str(path_file))[-1]
+                example = read_data_file(path_file)
 
-    # The heatmap
-    fig = visualize_heatmap(
-        heat_positions, 
-        heat_values, 
-        floor_image, 
-        width_meter, 
-        height_meter, 
-        colorbar_title='count', 
-        title=f'WiFi Count',
-    )
-    save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', 'wifiCount.html'))
+                # 正解軌道の可視化
+                trajectory = example.waypoint
+                trajectory = trajectory[:, 1:3] # Removes timestamp (we only need the coordinates)
 
-    # Get WiFi data
-    wifi_rssi = extract_wifi_rssi(mwi_datas)
-    print(f'This floor has {len(wifi_rssi.keys())} wifi aps (access points).')
+                fig = visualize_trajectory(
+                    trajectory = trajectory,
+                    floor_plan_filename = floor_image,
+                    width_meter = width_meter,
+                    height_meter = height_meter,
+                    title = f"{path_name}"
+                )
+                save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor}', 'waypoint', f'{path_name}.png'))
 
-    for target_bssid in list(wifi_rssi.keys()):
-        heat_positions = np.array(list(wifi_rssi[target_bssid].keys()))
-        heat_values = np.array(list(wifi_rssi[target_bssid].values()))[:, 0]
+                # single path data
+                mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
+                    [path_file]
+                )
 
-        # The heatmap
-        fig = visualize_heatmap(
-            heat_positions, 
-            heat_values, 
-            floor_image, 
-            width_meter, 
-            height_meter, 
-            colorbar_title='dBm', 
-            title='WiFi RSSI',
-        )
-        # save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'wifiRssi_{target_bssid}.html'))
-        save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'wifiRssi_{target_bssid}.png'))
+                step_positions = np.array(list(mwi_datas.keys()))
+                fig = visualize_trajectory(
+                    trajectory = step_positions,
+                    floor_plan_filename = floor_image,
+                    width_meter = width_meter,
+                    height_meter = height_meter, mode='markers', title='Step Positions')
+                save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor}', 'step_positions', f'{path_name}.png'))
 
-    # Getting the iBeacon data
-    ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
-    print(f'This floor has {len(ibeacon_rssi.keys())} ibeacons.')
+            # path of a floor wheel data
+            mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
+                [str(f) for f in path_file_list if str(pathlib.Path("").joinpath(site, floor)) in str(f)]
+            )
 
-    for target_ibeacon in list(ibeacon_rssi.keys()):
-        heat_positions = np.array(list(ibeacon_rssi[target_ibeacon].keys()))
-        heat_values = np.array(list(ibeacon_rssi[target_ibeacon].values()))[:, 0]
+            step_positions = np.array(list(mwi_datas.keys()))
+            fig = visualize_trajectory(step_positions, floor_image, width_meter, height_meter, mode='markers', title='Step Positions')
+            # save_figure_to_html(fig, output_path.joinpath(f'{site}', 'step_positions_all', f'{floor}.html'))
+            save_figure_to_image(fig, output_path.joinpath(f'{site}', 'step_positions_all', f'{floor}.png'))
 
-        # The heatmap
-        fig = visualize_heatmap(
-            heat_positions, 
-            heat_values, 
-            floor_image, 
-            width_meter, 
-            height_meter, 
-            colorbar_title='dBm', 
-            title='iBeacon RSSI',
-        )
-        # save_figure_to_html(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'ibeaconRssi_{target_ibeacon}.html'))
-        save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor_number}', f'ibeaconRssi_{target_ibeacon}.png'))
+            # Extracting the magnetic strength
+            magnetic_strength = extract_magnetic_strength(mwi_datas)
+
+            heat_positions = np.array(list(magnetic_strength.keys()))
+            heat_values = np.array(list(magnetic_strength.values()))
+
+            # Visualize the heatmap
+            fig = visualize_heatmap(
+                heat_positions, 
+                heat_values, 
+                floor_image,
+                width_meter, 
+                height_meter, 
+                colorbar_title='mu tesla', 
+                title='Magnetic Strength',
+            )
+            # save_figure_to_html(fig, output_path.joinpath(f'{site}', 'magnetic_strength', f'{floor}.html'))
+            save_figure_to_image(fig, output_path.joinpath(f'{site}', 'magnetic_strength', f'{floor}.png'))
+
+            # Wifi Count
+            wifi_counts = extract_wifi_count(mwi_datas)
+            heat_positions = np.array(list(wifi_counts.keys()))
+            heat_values = np.array(list(wifi_counts.values()))
+            # filter out positions that no wifi detected
+            mask = heat_values != 0
+            heat_positions = heat_positions[mask]
+            heat_values = heat_values[mask]
+
+            # The heatmap
+            fig = visualize_heatmap(
+                heat_positions, 
+                heat_values, 
+                floor_image, 
+                width_meter, 
+                height_meter, 
+                colorbar_title='count', 
+                title=f'WiFi Count',
+            )
+            save_figure_to_image(fig, output_path.joinpath(f'{site}', 'wificount', f'{floor}.png'))
+
+            # Get WiFi data
+            wifi_rssi = extract_wifi_rssi(mwi_datas)
+            print(f'This floor has {len(wifi_rssi.keys())} wifi aps (access points).')
+
+            for bssid in list(wifi_rssi.keys()):
+                heat_positions = np.array(list(wifi_rssi[bssid].keys()))
+                heat_values = np.array(list(wifi_rssi[bssid].values()))[:, 0]
+
+                # The heatmap
+                fig = visualize_heatmap(
+                    heat_positions, 
+                    heat_values, 
+                    floor_image, 
+                    width_meter, 
+                    height_meter, 
+                    colorbar_title='dBm', 
+                    title='WiFi RSSI',
+                )
+                save_figure_to_image(fig, output_path.joinpath(f'{site}', 'wifi_rssi', f'{bssid}', f'{floor}.png'))
+
+        # Getting the iBeacon data
+        ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
+        print(f'This floor has {len(ibeacon_rssi.keys())} ibeacons.')
+
+        for mmid in list(ibeacon_rssi.keys()):
+            heat_positions = np.array(list(ibeacon_rssi[mmid].keys()))
+            heat_values = np.array(list(ibeacon_rssi[mmid].values()))[:, 0]
+
+            # The heatmap
+            fig = visualize_heatmap(
+                heat_positions, 
+                heat_values, 
+                floor_image, 
+                width_meter, 
+                height_meter, 
+                colorbar_title='dBm', 
+                title='iBeacon RSSI',
+            )
+            save_figure_to_image(fig, output_path.joinpath(f'{site}', 'ibeacon_rssi', f'{mmid}', f'{floor}.png'))
 
     return
 
 if __name__ == '__main__':
-    main(pathlib.Path('./indata_mini'), pathlib.Path('./outdata_mini'))
-    # main(pathlib.Path('./indata'), pathlib.Path('./outdata'))
+    # main(pathlib.Path('./indata_mini'), pathlib.Path('./outdata_mini'))
+    main(pathlib.Path('./indata'), pathlib.Path('./outdata'))
