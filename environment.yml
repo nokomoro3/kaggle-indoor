@@ -1,0 +1,13 @@
+name: indoor
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
+  - pandas
+  - scipy
+  - pillow
+  - plotly
+  - psutil
+  - requests
+  - python-kaleido
