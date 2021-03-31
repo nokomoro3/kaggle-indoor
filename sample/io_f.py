@@ -64,7 +64,10 @@ def read_data_file(data_filename):
             continue
 
         if line_data[1] == 'TYPE_ROTATION_VECTOR':
-            ahrs.append([int(line_data[0]), float(line_data[2]), float(line_data[3]), float(line_data[4])])
+            if len(line_data)>=5:
+                ahrs.append([int(line_data[0]), float(line_data[2]), float(line_data[3]), float(line_data[4])])
+            else:
+                ahrs.append([int(line_data[0]), ahrs[-1][1], ahrs[-1][2], ahrs[-1][3]])
             continue
 
         if line_data[1] == 'TYPE_WIFI':

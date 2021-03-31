@@ -41,10 +41,12 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
     with open(output_path.joinpath('floor_category.json'), 'wt') as fp:
         json.dump(floor_category, fp, indent=4)
 
+    site_dir_list = sorted([*input_path.joinpath('train').glob("*")])
 
-    site_dir_list = [*input_path.joinpath('train').glob("*")]
-
-    for site_dir in site_dir_list:
+    #------------------------------------------
+    # ある建物についての画像出力
+    #------------------------------------------
+    for site_dir in [site_dir_list[0]]:
         site = site_dir.name
 
         floor_dir_list = [*site_dir.glob("*")]
@@ -60,37 +62,6 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
             height_meter = json_data["map_info"]["height"]
 
             path_file_list = [*floor_dir.glob("*.txt")]
-
-            for path_file in path_file_list:
-
-                path_name = re.split('[\\\\/]', str(path_file))[-1]
-                example = read_data_file(path_file)
-
-                # 正解軌道の可視化
-                trajectory = example.waypoint
-                trajectory = trajectory[:, 1:3] # Removes timestamp (we only need the coordinates)
-
-                fig = visualize_trajectory(
-                    trajectory = trajectory,
-                    floor_plan_filename = floor_image,
-                    width_meter = width_meter,
-                    height_meter = height_meter,
-                    title = f"{path_name}"
-                )
-                save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor}', 'waypoint', f'{path_name}.png'))
-
-                # single path data
-                mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-                    [path_file]
-                )
-
-                step_positions = np.array(list(mwi_datas.keys()))
-                fig = visualize_trajectory(
-                    trajectory = step_positions,
-                    floor_plan_filename = floor_image,
-                    width_meter = width_meter,
-                    height_meter = height_meter, mode='markers', title='Step Positions')
-                save_figure_to_image(fig, output_path.joinpath(f'{site}', f'{floor}', 'step_positions', f'{path_name}.png'))
 
             # path of a floor wheel data
             mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
@@ -162,25 +133,25 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
                 )
                 save_figure_to_image(fig, output_path.joinpath(f'{site}', 'wifi_rssi', f'{bssid}', f'{floor}.png'))
 
-        # Getting the iBeacon data
-        ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
-        print(f'This floor has {len(ibeacon_rssi.keys())} ibeacons.')
+            # Getting the iBeacon data
+            ibeacon_rssi = extract_ibeacon_rssi(mwi_datas)
+            print(f'This floor has {len(ibeacon_rssi.keys())} ibeacons.')
 
-        for mmid in list(ibeacon_rssi.keys()):
-            heat_positions = np.array(list(ibeacon_rssi[mmid].keys()))
-            heat_values = np.array(list(ibeacon_rssi[mmid].values()))[:, 0]
+            for mmid in list(ibeacon_rssi.keys()):
+                heat_positions = np.array(list(ibeacon_rssi[mmid].keys()))
+                heat_values = np.array(list(ibeacon_rssi[mmid].values()))[:, 0]
 
-            # The heatmap
-            fig = visualize_heatmap(
-                heat_positions, 
-                heat_values, 
-                floor_image, 
-                width_meter, 
-                height_meter, 
-                colorbar_title='dBm', 
-                title='iBeacon RSSI',
-            )
-            save_figure_to_image(fig, output_path.joinpath(f'{site}', 'ibeacon_rssi', f'{mmid}', f'{floor}.png'))
+                # The heatmap
+                fig = visualize_heatmap(
+                    heat_positions, 
+                    heat_values, 
+                    floor_image, 
+                    width_meter, 
+                    height_meter, 
+                    colorbar_title='dBm', 
+                    title='iBeacon RSSI',
+                )
+                save_figure_to_image(fig, output_path.joinpath(f'{site}', 'ibeacon_rssi', f'{mmid}', f'{floor}.png'))
 
     return
 

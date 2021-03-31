@@ -42,6 +42,9 @@ def calibrate_magnetic_wifi_ibeacon_to_position(path_file_list):
         # visualize_trajectory(posi_datas[:, 1:3], floor_plan_filename, width_meter, height_meter, title='Ground Truth', show=True)
         # visualize_trajectory(step_positions[:, 1:3], floor_plan_filename, width_meter, height_meter, title='Step Position', show=True)
 
+        if len(step_positions)==0:
+            continue
+
         if wifi_datas.size != 0:
             sep_tss = np.unique(wifi_datas[:, 0].astype(float))
 
