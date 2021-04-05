@@ -77,7 +77,8 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
                 path_name = path_file.stem
                 path_datas = read_data_file(path_file)
                 mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-                    [path_file]
+                    # [path_file]
+                    ["indata\\train\\5cd969c839e2fc0b4afe7ff1\\F5\\5d0b3a544a58160008d75e26.txt"]
                 )
                 # vis_path_file(path_datas, mwi_datas)
 
