@@ -43,6 +43,53 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
 
     site_dir_list = sorted([*input_path.joinpath('train').glob("*")])
 
+    def vis_path_file(path_datas, mwi_datas):
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        fig = make_subplots(rows=2, cols=2)
+        fig.add_trace( go.Scatter(x=path_datas.acce[:,0], y=path_datas.acce[:,1], name="acce_x"), row=1, col=1)
+        fig.add_trace( go.Scatter(x=path_datas.acce[:,0], y=path_datas.acce[:,2], name="acce_y"), row=1, col=1)
+        fig.add_trace( go.Scatter(x=path_datas.acce[:,0], y=path_datas.acce[:,3], name="acce_z"), row=1, col=1)
+
+        fig.add_trace( go.Scatter(x=path_datas.magn[:,0], y=path_datas.magn[:,1], name="magn_x"), row=2, col=1)
+        fig.add_trace( go.Scatter(x=path_datas.magn[:,0], y=path_datas.magn[:,2], name="magn_y"), row=2, col=1)
+        fig.add_trace( go.Scatter(x=path_datas.magn[:,0], y=path_datas.magn[:,3], name="magn_z"), row=2, col=1)
+
+        fig.add_trace( go.Scatter(x=path_datas.ahrs[:,0], y=path_datas.ahrs[:,1], name="ahrs_x"), row=1, col=2)
+        fig.add_trace( go.Scatter(x=path_datas.ahrs[:,0], y=path_datas.ahrs[:,2], name="ahrs_y"), row=1, col=2)
+        fig.add_trace( go.Scatter(x=path_datas.ahrs[:,0], y=path_datas.ahrs[:,3], name="ahrs_z"), row=1, col=2)
+
+        fig.add_trace( go.Scatter(x=path_datas.waypoint[:,0], y=path_datas.waypoint[:,1], name="waypoint_x"), row=2, col=2)
+        fig.add_trace( go.Scatter(x=path_datas.waypoint[:,0], y=path_datas.waypoint[:,2], name="waypoint_y"), row=2, col=2)
+
+        fig.show()
+        return
+
+    df = pd.DataFrame([], columns=["site", "floor", "path_name", "sensor_data_len", "waypoint_num", "sensor_num_per_waypoint"])
+    for site_dir in site_dir_list:
+        site = site_dir.name
+        floor_dir_list = [*site_dir.glob("*")]
+        for floor_dir in floor_dir_list:
+            floor = floor_dir.name
+            path_file_list = [*floor_dir.glob("*.txt")]
+            for path_file in path_file_list:
+                path_name = path_file.stem
+                path_datas = read_data_file(path_file)
+                mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
+                    [path_file]
+                )
+                # vis_path_file(path_datas, mwi_datas)
+
+                s = pd.Series(
+                    [site, floor, path_name, len(path_datas.acce), len(path_datas.waypoint), len(path_datas.acce)/len(path_datas.waypoint)], 
+                    index=["site", "floor", "path_name", "sensor_data_len", "waypoint_num", "sensor_num_per_waypoint"],
+                )
+                df = df.append([s], ignore_index=True)
+                df.to_csv(output_path.joinpath('path_summary.csv'))
+
+    return
+
     #------------------------------------------
     # ある建物についての画像出力
     #------------------------------------------
