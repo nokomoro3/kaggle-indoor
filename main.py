@@ -77,19 +77,41 @@ def main(input_path: pathlib.Path, output_path: pathlib.Path):
                 path_name = path_file.stem
                 path_datas = read_data_file(path_file)
                 mwi_datas = calibrate_magnetic_wifi_ibeacon_to_position(
-                    # [path_file]
-                    ["indata\\train\\5cd969c839e2fc0b4afe7ff1\\F5\\5d0b3a544a58160008d75e26.txt"]
+                    [path_file]
                 )
                 # vis_path_file(path_datas, mwi_datas)
 
-                s = pd.Series(
-                    [site, floor, path_name, len(path_datas.acce), len(path_datas.waypoint), len(path_datas.acce)/len(path_datas.waypoint)], 
-                    index=["site", "floor", "path_name", "sensor_data_len", "waypoint_num", "sensor_num_per_waypoint"],
-                )
-                df = df.append([s], ignore_index=True)
-                df.to_csv(output_path.joinpath('path_summary.csv'))
+                floor_image = input_path.joinpath('metadata', f'{site}', f'{floor}', 'floor_image.png')
+                floor_info = input_path.joinpath('metadata', f'{site}', f'{floor}', 'floor_info.json')
 
+                with open(floor_info) as fp:
+                    json_data = json.load(fp)
+                width_meter = json_data["map_info"]["width"]
+                height_meter = json_data["map_info"]["height"]
+                step_positions = np.array(list(mwi_datas.keys()))
+                fig = visualize_trajectory(step_positions, floor_image, width_meter, height_meter, mode='markers', title='Step Positions')
+                save_figure_to_html(fig, output_path.joinpath(f'{site}', 'step_positions_all', f'{floor}.html'))
+                save_figure_to_image(fig, output_path.joinpath(f'{site}', 'step_positions_all', f'{floor}.png'))
+
+
+                # s = pd.Series(
+                #     [site, floor, path_name, len(path_datas.acce), len(path_datas.waypoint), len(path_datas.acce)/len(path_datas.waypoint)], 
+                #     index=["site", "floor", "path_name", "sensor_data_len", "waypoint_num", "sensor_num_per_waypoint"],
+                # )
+                # df = df.append([s], ignore_index=True)
+                # df.to_csv(output_path.joinpath('path_summary.csv'))
+
+                break
+            break
+        break
+
+    # path_summary: pd.DataFrame = pd.read_csv(output_path.joinpath('path_summary.csv'), index_col=0)
+    # path_summary2 = path_summary.groupby(["site", "floor"]).sum()
+    # path_summary2["path_count"] = path_summary.groupby(["site", "floor"]).count()["path_name"]
+    # path_summary2.to_csv(output_path.joinpath('path_summary2.csv'))
     return
+
+
 
     #------------------------------------------
     # ある建物についての画像出力
