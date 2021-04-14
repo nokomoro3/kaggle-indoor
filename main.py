@@ -6,6 +6,7 @@ import gc
 import json
 import lightgbm as lgb
 import random
+import scipy.stats as stats
 from sklearn.model_selection import GroupKFold, KFold
 
 # base_path = '.\\indata'
@@ -146,7 +147,7 @@ from sklearn.model_selection import GroupKFold, KFold
 #     feature_df.to_csv(gid0+"_1000_test.csv")
 #     feature_dict[gid0] = feature_df
 
-N_SPLITS = 5
+N_SPLITS = 10
 SEED = 42
 
 def set_seed(seed=42):
@@ -158,6 +159,8 @@ def set_seed(seed=42):
 def comp_metric(xhat, yhat, fhat, x, y, f):
     intermediate = np.sqrt(np.power(xhat - x,2) + np.power(yhat-y,2)) + 15 * np.abs(fhat-f)
     return intermediate.sum()/xhat.shape[0]
+
+set_seed(SEED)
 
 feature_dir = ".\\indata\\wifi_features"
 
@@ -209,19 +212,25 @@ for e, file in enumerate(train_files):
     X = train_data.iloc[:,:-4]
     y = train_data[["x", "y", "f"]]
     y_oof = np.zeros(y.values.shape)
-    y_test = np.zeros((5, len(test_data), 3))
+    y_test = np.zeros((N_SPLITS, len(test_data), 3))
+    y_result = np.zeros((len(test_data), 3))
 
     # cross validation and predict test data
     path_unique = train_data["path"].unique()
     kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
-    for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
+    
+    for fold, (train_index, valid_index) in enumerate(kf.split(X)):
+    # for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
 
-        train_groups, valid_groups = path_unique[train_group_index], path_unique[valid_group_index]
-        is_train = train_data["path"].isin(train_groups)
-        is_valid = train_data["path"].isin(valid_groups)
+        # train_groups, valid_groups = path_unique[train_group_index], path_unique[valid_group_index]
+        # is_train = train_data["path"].isin(train_groups)
+        # is_valid = train_data["path"].isin(valid_groups)
 
-        X_train, X_valid = X[is_train], X[is_valid]
-        y_train, y_valid = y[is_train], y[is_valid]
+        # X_train, X_valid = X[is_train], X[is_valid]
+        # y_train, y_valid = y[is_train], y[is_valid]
+
+        X_train, X_valid = X.iloc[train_index,:], X.iloc[valid_index,:]
+        y_train, y_valid = y.iloc[train_index,:], y.iloc[valid_index,:]
 
         modelx = lgb.LGBMRegressor(**lgb_params)
         modelx.fit(X_train, y_train["x"], eval_set=[(X_valid, y_valid["x"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
@@ -235,9 +244,13 @@ for e, file in enumerate(train_files):
         modelf.fit(X_train, y_train["f"], eval_set=[(X_valid, y_valid["f"])], eval_metric='multi_logloss', verbose=False, early_stopping_rounds=20)
         predf = modelf.predict(X_valid)
 
-        y_oof[y_valid.index,0] = predx
-        y_oof[y_valid.index,1] = predy
-        y_oof[y_valid.index,2] = predf
+        # y_oof[y_valid.index,0] = predx
+        # y_oof[y_valid.index,1] = predy
+        # y_oof[y_valid.index,2] = predf
+
+        y_oof[valid_index,0] = predx
+        y_oof[valid_index,1] = predy
+        y_oof[valid_index,2] = predf
 
         y_test[fold,:,0] = modelx.predict(test_data.iloc[:,:-1])
         y_test[fold,:,1] = modely.predict(test_data.iloc[:,:-1])
@@ -250,10 +263,13 @@ for e, file in enumerate(train_files):
 
     print(f"site={e}:{str(file)}, score={score}")
 
-    y_test = np.mean(y_test, axis=0)
-    y_test = y_test[:,[2,0,1]]
-    
-    test_preds = pd.DataFrame(y_test)
+    y_result[:,1:3] = np.mean(y_test[:,:,0:2], axis=0)
+    y_result[:,0] = stats.mode(y_test[:,:,2], axis=0)[0].astype(np.int32).reshape(-1)
+
+    # y_result = np.mean(y_test, axis=0)
+    # y_result = y_result[:,[2,0,1]]
+
+    test_preds = pd.DataFrame(y_result)
     test_preds.columns = ssubm.columns
     test_preds.index = test_data["site_path_timestamp"]
     test_preds["floor"] = test_preds["floor"].astype(int)

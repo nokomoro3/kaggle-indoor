@@ -89,9 +89,10 @@
 
 |name|CV|LB(Public)||explanation|
 |:---|:---|:---|:---|
-|2021-04-14-001 | none   | 13.168 | wifi feats baseline |
-|2021-04-14-002 | 16.333 | 19.396 | cv |
-|2021-04-14-003 | 13.839 | 13.283 | lgbm parameter adjustment |
+| 2021-04-14-001 | none   | 13.168 | wifi feats baseline |
+| 2021-04-14-002 | 16.333 | 19.396 | cv |
+| 2021-04-14-003 | 13.839 | 13.283 | lgbm parameter adjustment |
+| 2021-04-14-004 |  5.137 | 12.836 | GroupFold -> KFold |
 
 ## 参考ベースライン
 
