@@ -84,3 +84,25 @@
   - 各種センサーデータ
   - タイムスタンプ
     - self-attentionを用い、transformerのencoderのようなモデルを使いたい。
+
+## submission履歴
+
+|name|Public Score|cv|explanation|
+|:---|:---|:---|:---|
+|2021-04-14-001 | 13.168 | none   | wifi feats baseline |
+|2021-04-14-002 | 19.396 | 16.333 | cv |
+
+## 参考ベースライン
+
+### wifi features
+
+- https://www.kaggle.com/devinanzelmo/wifi-features
+  - wifiのbssid情報から、timestampをキーとして最も近いwaypoint,floorを正解とするデータセットを作成。
+  - ユニークなのはtimestampであり、正解waypoint,floorはユニークではない。
+  - test側はtimestampに最も近いwifi情報を使う。
+  - これを建物毎に作成する。
+
+- https://www.kaggle.com/devinanzelmo/wifi-features-lightgbm-starter/data
+  - 上記の特徴を元にしたモデル。
+
+- この手法の課題は時系列の情報を使えてない点。ピンポイントの時間のrssiのみを使っている。

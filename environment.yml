@@ -11,3 +11,5 @@ dependencies:
   - psutil
   - requests
   - python-kaleido
+  - scikit-learn
+  - lightgbm
