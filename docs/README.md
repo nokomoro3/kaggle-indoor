@@ -87,10 +87,11 @@
 
 ## submission履歴
 
-|name|Public Score|cv|explanation|
+|name|CV|LB(Public)||explanation|
 |:---|:---|:---|:---|
-|2021-04-14-001 | 13.168 | none   | wifi feats baseline |
-|2021-04-14-002 | 19.396 | 16.333 | cv |
+|2021-04-14-001 | none   | 13.168 | wifi feats baseline |
+|2021-04-14-002 | 16.333 | 19.396 | cv |
+|2021-04-14-003 | 13.839 | 13.283 | lgbm parameter adjustment |
 
 ## 参考ベースライン
 

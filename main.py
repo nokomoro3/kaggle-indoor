@@ -5,7 +5,8 @@ import os
 import gc
 import json
 import lightgbm as lgb
-from sklearn.model_selection import GroupKFold
+import random
+from sklearn.model_selection import GroupKFold, KFold
 
 # base_path = '.\\indata'
 
@@ -145,17 +146,55 @@ from sklearn.model_selection import GroupKFold
 #     feature_df.to_csv(gid0+"_1000_test.csv")
 #     feature_dict[gid0] = feature_df
 
-feature_dir = ".\\indata\\wifi_features"
+N_SPLITS = 5
+SEED = 42
+
+def set_seed(seed=42):
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
 
 # the metric used in this competition
 def comp_metric(xhat, yhat, fhat, x, y, f):
     intermediate = np.sqrt(np.power(xhat - x,2) + np.power(yhat-y,2)) + 15 * np.abs(fhat-f)
     return intermediate.sum()/xhat.shape[0]
 
+feature_dir = ".\\indata\\wifi_features"
+
 # get our train and test files
 train_files = sorted(glob.glob(os.path.join(feature_dir, 'train\\*_train.csv')))
 test_files = sorted(glob.glob(os.path.join(feature_dir, 'test\\*_test.csv')))
 ssubm = pd.read_csv('.\\indata\\sample_submission.csv', index_col=0)
+
+lgb_params = {'objective': 'root_mean_squared_error',
+              'boosting_type': 'gbdt',
+              'n_estimators': 50000,
+              'learning_rate': 0.1,
+              'num_leaves': 90,
+              'colsample_bytree': 0.4,
+              'subsample': 0.6,
+              'subsample_freq': 2,
+              'bagging_seed': SEED,
+              'reg_alpha': 8,
+              'reg_lambda': 2,
+              'random_state': SEED,
+              'n_jobs': -1
+              }
+
+lgb_f_params = {'objective': 'multiclass',
+                'boosting_type': 'gbdt',
+                'n_estimators': 50000,
+                'learning_rate': 0.1,
+                'num_leaves': 90,
+                'colsample_bytree': 0.4,
+                'subsample': 0.6,
+                'subsample_freq': 2,
+                'bagging_seed': SEED,
+                'reg_alpha': 10,
+                'reg_lambda': 2,
+                'random_state': SEED,
+                'n_jobs': -1
+                }
 
 predictions = list()
 
@@ -173,25 +212,32 @@ for e, file in enumerate(train_files):
     y_test = np.zeros((5, len(test_data), 3))
 
     # cross validation and predict test data
-    for fold, (train_index, valid_index) in enumerate(GroupKFold(n_splits=5).split(X=X, y=y, groups=train_data["path"])):
-        X_train, X_valid = X.iloc[train_index,:], X.iloc[valid_index,:]
-        y_train, y_valid = y.iloc[train_index,:], y.iloc[valid_index,:]
+    path_unique = train_data["path"].unique()
+    kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
+    for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
 
-        modelx = lgb.LGBMRegressor(n_estimators=125, num_leaves=90)
-        modelx.fit(X_train, y_train["x"])
+        train_groups, valid_groups = path_unique[train_group_index], path_unique[valid_group_index]
+        is_train = train_data["path"].isin(train_groups)
+        is_valid = train_data["path"].isin(valid_groups)
+
+        X_train, X_valid = X[is_train], X[is_valid]
+        y_train, y_valid = y[is_train], y[is_valid]
+
+        modelx = lgb.LGBMRegressor(**lgb_params)
+        modelx.fit(X_train, y_train["x"], eval_set=[(X_valid, y_valid["x"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
         predx = modelx.predict(X_valid)
     
-        modely = lgb.LGBMRegressor(n_estimators=125, num_leaves=90)
-        modely.fit(X_train, y_train["y"])
+        modely = lgb.LGBMRegressor(**lgb_params)
+        modely.fit(X_train, y_train["y"], eval_set=[(X_valid, y_valid["y"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
         predy = modely.predict(X_valid)
 
-        modelf = lgb.LGBMRegressor(n_estimators=125, num_leaves=90)
-        modelf.fit(X_train, y_train["f"])
+        modelf = lgb.LGBMClassifier(**lgb_f_params)
+        modelf.fit(X_train, y_train["f"], eval_set=[(X_valid, y_valid["f"])], eval_metric='multi_logloss', verbose=False, early_stopping_rounds=20)
         predf = modelf.predict(X_valid)
 
-        y_oof[valid_index,0] = predx
-        y_oof[valid_index,1] = predy
-        y_oof[valid_index,2] = predf
+        y_oof[y_valid.index,0] = predx
+        y_oof[y_valid.index,1] = predy
+        y_oof[y_valid.index,2] = predf
 
         y_test[fold,:,0] = modelx.predict(test_data.iloc[:,:-1])
         y_test[fold,:,1] = modely.predict(test_data.iloc[:,:-1])
