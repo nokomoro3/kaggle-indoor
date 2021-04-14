@@ -150,6 +150,16 @@ from sklearn.model_selection import GroupKFold, KFold
 N_SPLITS = 10
 SEED = 42
 
+from datetime import datetime
+class ElapsedTimer():
+    def __init__(self) -> None:
+        self.mem = datetime.now()
+    def get(self) -> int:
+        now = datetime.now()
+        elapsed = now - self.mem
+        self.mem = datetime.now()
+        return elapsed
+
 def set_seed(seed=42):
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -162,11 +172,11 @@ def comp_metric(xhat, yhat, fhat, x, y, f):
 
 set_seed(SEED)
 
-feature_dir = ".\\indata\\wifi_features"
+feature_dir = ".\\indata\\wifi_features2"
 
 # get our train and test files
-train_files = sorted(glob.glob(os.path.join(feature_dir, 'train\\*_train.csv')))
-test_files = sorted(glob.glob(os.path.join(feature_dir, 'test\\*_test.csv')))
+train_files = sorted(glob.glob(os.path.join(feature_dir, '*_train.csv')))
+test_files = sorted(glob.glob(os.path.join(feature_dir, '*_test.csv')))
 ssubm = pd.read_csv('.\\indata\\sample_submission.csv', index_col=0)
 
 lgb_params = {'objective': 'root_mean_squared_error',
@@ -204,6 +214,8 @@ predictions = list()
 # loop of sites
 y_oof_all = np.empty((0,3))
 y_truth_all = np.empty((0,3))
+
+elapsed_timer = ElapsedTimer()
 for e, file in enumerate(train_files):
 
     train_data = pd.read_csv(file, index_col=0).reset_index(drop=True)
@@ -219,6 +231,7 @@ for e, file in enumerate(train_files):
     path_unique = train_data["path"].unique()
     kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
     
+    elapsed_timer_cv = ElapsedTimer()
     for fold, (train_index, valid_index) in enumerate(kf.split(X)):
     # for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
 
@@ -244,6 +257,9 @@ for e, file in enumerate(train_files):
         modelf.fit(X_train, y_train["f"], eval_set=[(X_valid, y_valid["f"])], eval_metric='multi_logloss', verbose=False, early_stopping_rounds=20)
         predf = modelf.predict(X_valid)
 
+        score = comp_metric(predx, predy, predf, y_valid["x"], y_valid["y"], y_valid["f"])
+        print(f"site={e+1}/{len(train_files)}:{str(file)}, fold={fold+1}/{N_SPLITS}, score={score}, elapsed_time={elapsed_timer_cv.get()}")
+
         # y_oof[y_valid.index,0] = predx
         # y_oof[y_valid.index,1] = predy
         # y_oof[y_valid.index,2] = predf
@@ -254,14 +270,15 @@ for e, file in enumerate(train_files):
 
         y_test[fold,:,0] = modelx.predict(test_data.iloc[:,:-1])
         y_test[fold,:,1] = modely.predict(test_data.iloc[:,:-1])
-        y_test[fold,:,2] = modelf.predict(test_data.iloc[:,:-1])        
+        y_test[fold,:,2] = modelf.predict(test_data.iloc[:,:-1])    
+    
 
     score = comp_metric(y_oof[:,0], y_oof[:,1], y_oof[:,2], y["x"], y["y"], y["f"])
 
     y_oof_all = np.concatenate([y_oof_all, y_oof])
     y_truth_all = np.concatenate([y_truth_all, train_data[["x", "y", "f"]].values])
 
-    print(f"site={e}:{str(file)}, score={score}")
+    print(f"site={e+1}/{len(train_files)}:{str(file)}, score={score}, elapsed_time={elapsed_timer.get()}")
 
     y_result[:,1:3] = np.mean(y_test[:,:,0:2], axis=0)
     y_result[:,0] = stats.mode(y_test[:,:,2], axis=0)[0].astype(np.int32).reshape(-1)
