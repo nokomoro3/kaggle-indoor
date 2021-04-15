@@ -9,27 +9,39 @@ import random
 import scipy.stats as stats
 from sklearn.model_selection import GroupKFold, KFold
 
-# base_path = '.\\indata'
 
-# # pull out all the buildings actually used in the test set, given current method we don't need the other ones
-# ssubm = pd.read_csv('.\\indata\\sample_submission.csv')
+from datetime import datetime
+class ElapsedTimer():
+    def __init__(self) -> None:
+        self.mem = datetime.now()
+    def get(self) -> int:
+        now = datetime.now()
+        elapsed = now - self.mem
+        self.mem = datetime.now()
+        return elapsed
 
-# # only 24 of the total buildings are used in the test set, 
-# # this allows us to greatly reduce the intial size of the dataset
+base_path = '.\\indata'
 
-# ssubm_df = ssubm["site_path_timestamp"].apply(lambda x: pd.Series(x.split("_")))
-# used_buildings = sorted(ssubm_df[0].value_counts().index.tolist())
+# pull out all the buildings actually used in the test set, given current method we don't need the other ones
+ssubm = pd.read_csv('.\\indata\\sample_submission.csv')
 
-# # dictionary used to map the floor codes to the values used in the submission file. 
-# floor_map = {"B2":-2, "B1":-1, "F1":0, "F2": 1, "F3":2, "F4":3, "F5":4, "F6":5, "F7":6,"F8":7, "F9":8,
-#              "1F":0, "2F":1, "3F":2, "4F":3, "5F":4, "6F":5, "7F":6, "8F": 7, "9F":8}
+# only 24 of the total buildings are used in the test set, 
+# this allows us to greatly reduce the intial size of the dataset
+
+ssubm_df = ssubm["site_path_timestamp"].apply(lambda x: pd.Series(x.split("_")))
+used_buildings = sorted(ssubm_df[0].value_counts().index.tolist())
+
+# dictionary used to map the floor codes to the values used in the submission file. 
+floor_map = {"B2":-2, "B1":-1, "F1":0, "F2": 1, "F3":2, "F4":3, "F5":4, "F6":5, "F7":6,"F8":7, "F9":8,
+             "1F":0, "2F":1, "3F":2, "4F":3, "5F":4, "6F":5, "7F":6, "8F": 7, "9F":8}
 
 # # get only the wifi bssid that occur over 1000 times(this number can be experimented with)
 # # these will be the only ones used when constructing features
 # bssid = dict()
 
-# for building in used_buildings:
-#     break
+elapsed_timer = ElapsedTimer()
+# for i, building in enumerate(used_buildings):
+#     # break
 #     folders = sorted(glob.glob(os.path.join(base_path,'train\\'+building+'\\*')))
 #     print(building)
 #     wifi = list()
@@ -46,23 +58,26 @@ from sklearn.model_selection import GroupKFold, KFold
 #     df = pd.DataFrame(wifi)
 #     #top_bssid = df[3].value_counts().iloc[:500].index.tolist()
 #     value_counts = df[3].value_counts()
-#     top_bssid = value_counts[value_counts > 1000].index.tolist()
+#     # top_bssid = value_counts[value_counts > 1000].index.tolist()
+#     top_bssid = value_counts.index.tolist()
 #     print(len(top_bssid))
 #     bssid[building] = top_bssid
 #     del df
 #     del wifi
 #     gc.collect()
 
-# with open("bssid_1000.json", "w") as f:
+#     print(f"site={i+1}/{len(used_buildings)}, elapsed_time={elapsed_timer.get()}")
+
+# with open("bssid_all.json", "w") as f:
 #     json.dump(bssid, f)
 
-# with open("bssid_1000.json") as f:
+# with open("bssid_all.json") as f:
 #     bssid = json.load(f)
 
 # # generate all the training data 
 # building_dfs = dict()
 
-# for building in used_buildings:
+# for i, building in enumerate(used_buildings):
 #     # break
 #     folders = sorted(glob.glob(os.path.join(base_path,'train', building +'\\*')))
 #     dfs = list()
@@ -105,13 +120,15 @@ from sklearn.model_selection import GroupKFold, KFold
                 
 #     building_df = pd.concat(dfs)
 #     building_dfs[building] = df
-#     building_df.to_csv(building+"_1000_train.csv")
+#     building_df.to_csv(building+"_all_train.csv")
+
+#     print(f"site={i+1}/{len(used_buildings)}, elapsed_time={elapsed_timer.get()}")
 
 # # Generate the features for the test set
 # ssubm_building_g = ssubm_df.groupby(0)
 # feature_dict = dict()
 
-# for gid0, g0 in ssubm_building_g: # loop of site
+# for i, (gid0, g0) in enumerate(ssubm_building_g): # loop of site
 #     # break
 #     index = sorted(bssid[g0.iloc[0,0]])
 #     feats = list()
@@ -144,161 +161,163 @@ from sklearn.model_selection import GroupKFold, KFold
 #             feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
 #             feats.append(feat)
 #     feature_df = pd.concat(feats, axis=1).T
-#     feature_df.to_csv(gid0+"_1000_test.csv")
+#     feature_df.to_csv(gid0+"_all_test.csv")
 #     feature_dict[gid0] = feature_df
 
-N_SPLITS = 10
-SEED = 42
+#     print(f"site={i+1}/{len(ssubm_building_g)}, elapsed_time={elapsed_timer.get()}")
 
-from datetime import datetime
-class ElapsedTimer():
-    def __init__(self) -> None:
-        self.mem = datetime.now()
-    def get(self) -> int:
-        now = datetime.now()
-        elapsed = now - self.mem
-        self.mem = datetime.now()
-        return elapsed
+# N_SPLITS = 10
+# SEED = 42
 
-def set_seed(seed=42):
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
+# from datetime import datetime
+# class ElapsedTimer():
+#     def __init__(self) -> None:
+#         self.mem = datetime.now()
+#     def get(self) -> int:
+#         now = datetime.now()
+#         elapsed = now - self.mem
+#         self.mem = datetime.now()
+#         return elapsed
 
-# the metric used in this competition
-def comp_metric(xhat, yhat, fhat, x, y, f):
-    intermediate = np.sqrt(np.power(xhat - x,2) + np.power(yhat-y,2)) + 15 * np.abs(fhat-f)
-    return intermediate.sum()/xhat.shape[0]
+# def set_seed(seed=42):
+#     random.seed(seed)
+#     os.environ["PYTHONHASHSEED"] = str(seed)
+#     np.random.seed(seed)
 
-set_seed(SEED)
+# # the metric used in this competition
+# def comp_metric(xhat, yhat, fhat, x, y, f):
+#     intermediate = np.sqrt(np.power(xhat - x,2) + np.power(yhat-y,2)) + 15 * np.abs(fhat-f)
+#     return intermediate.sum()/xhat.shape[0]
 
-feature_dir = ".\\indata\\wifi_features2"
+# set_seed(SEED)
 
-# get our train and test files
-train_files = sorted(glob.glob(os.path.join(feature_dir, '*_train.csv')))
-test_files = sorted(glob.glob(os.path.join(feature_dir, '*_test.csv')))
-ssubm = pd.read_csv('.\\indata\\sample_submission.csv', index_col=0)
+# feature_dir = ".\\indata\\wifi_features2"
 
-lgb_params = {'objective': 'root_mean_squared_error',
-              'boosting_type': 'gbdt',
-              'n_estimators': 50000,
-              'learning_rate': 0.1,
-              'num_leaves': 90,
-              'colsample_bytree': 0.4,
-              'subsample': 0.6,
-              'subsample_freq': 2,
-              'bagging_seed': SEED,
-              'reg_alpha': 8,
-              'reg_lambda': 2,
-              'random_state': SEED,
-              'n_jobs': -1
-              }
+# # get our train and test files
+# train_files = sorted(glob.glob(os.path.join(feature_dir, '*_train.csv')))
+# test_files = sorted(glob.glob(os.path.join(feature_dir, '*_test.csv')))
+# ssubm = pd.read_csv('.\\indata\\sample_submission.csv', index_col=0)
 
-lgb_f_params = {'objective': 'multiclass',
-                'boosting_type': 'gbdt',
-                'n_estimators': 50000,
-                'learning_rate': 0.1,
-                'num_leaves': 90,
-                'colsample_bytree': 0.4,
-                'subsample': 0.6,
-                'subsample_freq': 2,
-                'bagging_seed': SEED,
-                'reg_alpha': 10,
-                'reg_lambda': 2,
-                'random_state': SEED,
-                'n_jobs': -1
-                }
+# lgb_params = {'objective': 'root_mean_squared_error',
+#               'boosting_type': 'gbdt',
+#               'n_estimators': 50000,
+#               'learning_rate': 0.1,
+#               'num_leaves': 90,
+#               'colsample_bytree': 0.4,
+#               'subsample': 0.6,
+#               'subsample_freq': 2,
+#               'bagging_seed': SEED,
+#               'reg_alpha': 8,
+#               'reg_lambda': 2,
+#               'random_state': SEED,
+#               'n_jobs': -1
+#               }
 
-predictions = list()
+# lgb_f_params = {'objective': 'multiclass',
+#                 'boosting_type': 'gbdt',
+#                 'n_estimators': 50000,
+#                 'learning_rate': 0.1,
+#                 'num_leaves': 90,
+#                 'colsample_bytree': 0.4,
+#                 'subsample': 0.6,
+#                 'subsample_freq': 2,
+#                 'bagging_seed': SEED,
+#                 'reg_alpha': 10,
+#                 'reg_lambda': 2,
+#                 'random_state': SEED,
+#                 'n_jobs': -1
+#                 }
 
-# loop of sites
-y_oof_all = np.empty((0,3))
-y_truth_all = np.empty((0,3))
+# predictions = list()
 
-elapsed_timer = ElapsedTimer()
-for e, file in enumerate(train_files):
+# # loop of sites
+# y_oof_all = np.empty((0,3))
+# y_truth_all = np.empty((0,3))
 
-    train_data = pd.read_csv(file, index_col=0).reset_index(drop=True)
-    test_data = pd.read_csv(test_files[e], index_col=0).reset_index(drop=True)
+# elapsed_timer = ElapsedTimer()
+# for e, file in enumerate(train_files):
 
-    X = train_data.iloc[:,:-4]
-    y = train_data[["x", "y", "f"]]
-    y_oof = np.zeros(y.values.shape)
-    y_test = np.zeros((N_SPLITS, len(test_data), 3))
-    y_result = np.zeros((len(test_data), 3))
+#     train_data = pd.read_csv(file, index_col=0).reset_index(drop=True)
+#     test_data = pd.read_csv(test_files[e], index_col=0).reset_index(drop=True)
 
-    # cross validation and predict test data
-    path_unique = train_data["path"].unique()
-    kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
+#     X = train_data.iloc[:,:-4]
+#     y = train_data[["x", "y", "f"]]
+#     y_oof = np.zeros(y.values.shape)
+#     y_test = np.zeros((N_SPLITS, len(test_data), 3))
+#     y_result = np.zeros((len(test_data), 3))
+
+#     # cross validation and predict test data
+#     path_unique = train_data["path"].unique()
+#     kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
     
-    elapsed_timer_cv = ElapsedTimer()
-    for fold, (train_index, valid_index) in enumerate(kf.split(X)):
-    # for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
+#     elapsed_timer_cv = ElapsedTimer()
+#     for fold, (train_index, valid_index) in enumerate(kf.split(X)):
+#     # for fold, (train_group_index, valid_group_index) in enumerate(kf.split(path_unique)):
 
-        # train_groups, valid_groups = path_unique[train_group_index], path_unique[valid_group_index]
-        # is_train = train_data["path"].isin(train_groups)
-        # is_valid = train_data["path"].isin(valid_groups)
+#         # train_groups, valid_groups = path_unique[train_group_index], path_unique[valid_group_index]
+#         # is_train = train_data["path"].isin(train_groups)
+#         # is_valid = train_data["path"].isin(valid_groups)
 
-        # X_train, X_valid = X[is_train], X[is_valid]
-        # y_train, y_valid = y[is_train], y[is_valid]
+#         # X_train, X_valid = X[is_train], X[is_valid]
+#         # y_train, y_valid = y[is_train], y[is_valid]
 
-        X_train, X_valid = X.iloc[train_index,:], X.iloc[valid_index,:]
-        y_train, y_valid = y.iloc[train_index,:], y.iloc[valid_index,:]
+#         X_train, X_valid = X.iloc[train_index,:], X.iloc[valid_index,:]
+#         y_train, y_valid = y.iloc[train_index,:], y.iloc[valid_index,:]
 
-        modelx = lgb.LGBMRegressor(**lgb_params)
-        modelx.fit(X_train, y_train["x"], eval_set=[(X_valid, y_valid["x"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
-        predx = modelx.predict(X_valid)
+#         modelx = lgb.LGBMRegressor(**lgb_params)
+#         modelx.fit(X_train, y_train["x"], eval_set=[(X_valid, y_valid["x"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
+#         predx = modelx.predict(X_valid)
     
-        modely = lgb.LGBMRegressor(**lgb_params)
-        modely.fit(X_train, y_train["y"], eval_set=[(X_valid, y_valid["y"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
-        predy = modely.predict(X_valid)
+#         modely = lgb.LGBMRegressor(**lgb_params)
+#         modely.fit(X_train, y_train["y"], eval_set=[(X_valid, y_valid["y"])], eval_metric='rmse', verbose=False, early_stopping_rounds=20)
+#         predy = modely.predict(X_valid)
 
-        modelf = lgb.LGBMClassifier(**lgb_f_params)
-        modelf.fit(X_train, y_train["f"], eval_set=[(X_valid, y_valid["f"])], eval_metric='multi_logloss', verbose=False, early_stopping_rounds=20)
-        predf = modelf.predict(X_valid)
+#         modelf = lgb.LGBMClassifier(**lgb_f_params)
+#         modelf.fit(X_train, y_train["f"], eval_set=[(X_valid, y_valid["f"])], eval_metric='multi_logloss', verbose=False, early_stopping_rounds=20)
+#         predf = modelf.predict(X_valid)
 
-        score = comp_metric(predx, predy, predf, y_valid["x"], y_valid["y"], y_valid["f"])
-        print(f"site={e+1}/{len(train_files)}:{str(file)}, fold={fold+1}/{N_SPLITS}, score={score}, elapsed_time={elapsed_timer_cv.get()}")
+#         score = comp_metric(predx, predy, predf, y_valid["x"], y_valid["y"], y_valid["f"])
+#         print(f"site={e+1}/{len(train_files)}:{str(file)}, fold={fold+1}/{N_SPLITS}, score={score}, elapsed_time={elapsed_timer_cv.get()}")
 
-        # y_oof[y_valid.index,0] = predx
-        # y_oof[y_valid.index,1] = predy
-        # y_oof[y_valid.index,2] = predf
+#         # y_oof[y_valid.index,0] = predx
+#         # y_oof[y_valid.index,1] = predy
+#         # y_oof[y_valid.index,2] = predf
 
-        y_oof[valid_index,0] = predx
-        y_oof[valid_index,1] = predy
-        y_oof[valid_index,2] = predf
+#         y_oof[valid_index,0] = predx
+#         y_oof[valid_index,1] = predy
+#         y_oof[valid_index,2] = predf
 
-        y_test[fold,:,0] = modelx.predict(test_data.iloc[:,:-1])
-        y_test[fold,:,1] = modely.predict(test_data.iloc[:,:-1])
-        y_test[fold,:,2] = modelf.predict(test_data.iloc[:,:-1])    
+#         y_test[fold,:,0] = modelx.predict(test_data.iloc[:,:-1])
+#         y_test[fold,:,1] = modely.predict(test_data.iloc[:,:-1])
+#         y_test[fold,:,2] = modelf.predict(test_data.iloc[:,:-1])    
     
 
-    score = comp_metric(y_oof[:,0], y_oof[:,1], y_oof[:,2], y["x"], y["y"], y["f"])
+#     score = comp_metric(y_oof[:,0], y_oof[:,1], y_oof[:,2], y["x"], y["y"], y["f"])
 
-    y_oof_all = np.concatenate([y_oof_all, y_oof])
-    y_truth_all = np.concatenate([y_truth_all, train_data[["x", "y", "f"]].values])
+#     y_oof_all = np.concatenate([y_oof_all, y_oof])
+#     y_truth_all = np.concatenate([y_truth_all, train_data[["x", "y", "f"]].values])
 
-    print(f"site={e+1}/{len(train_files)}:{str(file)}, score={score}, elapsed_time={elapsed_timer.get()}")
+#     print(f"site={e+1}/{len(train_files)}:{str(file)}, score={score}, elapsed_time={elapsed_timer.get()}")
 
-    y_result[:,1:3] = np.mean(y_test[:,:,0:2], axis=0)
-    y_result[:,0] = stats.mode(y_test[:,:,2], axis=0)[0].astype(np.int32).reshape(-1)
+#     y_result[:,1:3] = np.mean(y_test[:,:,0:2], axis=0)
+#     y_result[:,0] = stats.mode(y_test[:,:,2], axis=0)[0].astype(np.int32).reshape(-1)
 
-    # y_result = np.mean(y_test, axis=0)
-    # y_result = y_result[:,[2,0,1]]
+#     # y_result = np.mean(y_test, axis=0)
+#     # y_result = y_result[:,[2,0,1]]
 
-    test_preds = pd.DataFrame(y_result)
-    test_preds.columns = ssubm.columns
-    test_preds.index = test_data["site_path_timestamp"]
-    test_preds["floor"] = test_preds["floor"].astype(int)
-    predictions.append(test_preds)
+#     test_preds = pd.DataFrame(y_result)
+#     test_preds.columns = ssubm.columns
+#     test_preds.index = test_data["site_path_timestamp"]
+#     test_preds["floor"] = test_preds["floor"].astype(int)
+#     predictions.append(test_preds)
 
-score = comp_metric(
-    y_oof_all[:,0], y_oof_all[:,1], y_oof_all[:,2], 
-    y_truth_all[:,0], y_truth_all[:,1], y_truth_all[:,2],
-)
-print(f"site=all, score={score}")
+# score = comp_metric(
+#     y_oof_all[:,0], y_oof_all[:,1], y_oof_all[:,2], 
+#     y_truth_all[:,0], y_truth_all[:,1], y_truth_all[:,2],
+# )
+# print(f"site=all, score={score}")
 
-# generate prediction file 
-all_preds = pd.concat(predictions)
-all_preds = all_preds.reindex(ssubm.index)
-all_preds.to_csv('submission.csv')
+# # generate prediction file 
+# all_preds = pd.concat(predictions)
+# all_preds = all_preds.reindex(ssubm.index)
+# all_preds.to_csv('submission.csv')
