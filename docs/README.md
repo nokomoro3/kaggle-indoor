@@ -114,3 +114,6 @@
 
 - 1000以上ではなくすべてのbssidを使う方法。
 - https://www.kaggle.com/hiro5299834/wifi-features-with-lightgbm-kfold
+
+- データは以下に公開されている。
+  - https://www.kaggle.com/hiro5299834/indoor-navigation-and-location-wifi-features

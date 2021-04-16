@@ -1,16 +1,23 @@
+
+# import random
+import pathlib
+from datetime import datetime
+# import glob
+import os
+# import gc
+import json
+from collections import OrderedDict
+import re
+
 import pandas as pd
 import numpy as np
-import glob
-import os
-import gc
-import json
-import lightgbm as lgb
-import random
-import scipy.stats as stats
-from sklearn.model_selection import GroupKFold, KFold
+# import lightgbm as lgb
+# import scipy.stats as stats
+# from sklearn.model_selection import GroupKFold, KFold
+from tqdm import tqdm
 
+from sample.io_f import read_data_file
 
-from datetime import datetime
 class ElapsedTimer():
     def __init__(self) -> None:
         self.mem = datetime.now()
@@ -20,151 +27,203 @@ class ElapsedTimer():
         self.mem = datetime.now()
         return elapsed
 
-base_path = '.\\indata'
+base_path = pathlib.Path('indata')
+output_path = pathlib.Path('outdata')
 
 # pull out all the buildings actually used in the test set, given current method we don't need the other ones
-ssubm = pd.read_csv('.\\indata\\sample_submission.csv')
+ssubm = pd.read_csv(base_path.joinpath('sample_submission.csv'))
 
 # only 24 of the total buildings are used in the test set, 
 # this allows us to greatly reduce the intial size of the dataset
 
 ssubm_df = ssubm["site_path_timestamp"].apply(lambda x: pd.Series(x.split("_")))
-used_buildings = sorted(ssubm_df[0].value_counts().index.tolist())
+used_sites = sorted(ssubm_df[0].value_counts().index.tolist())
 
 # dictionary used to map the floor codes to the values used in the submission file. 
 floor_map = {"B2":-2, "B1":-1, "F1":0, "F2": 1, "F3":2, "F4":3, "F5":4, "F6":5, "F7":6,"F8":7, "F9":8,
              "1F":0, "2F":1, "3F":2, "4F":3, "5F":4, "6F":5, "7F":6, "8F": 7, "9F":8}
 
+elapsed_timer = ElapsedTimer()
+elapsed_timer.get()
+
+# path_files = sorted(base_path.joinpath('train').glob("**/*.txt"))
+# for path_file in tqdm(path_files, desc="path files", ascii=True):
+#     with open(path_file, encoding='utf-8') as f:
+#         lines = f.readlines()
+
+#     olines = []
+#     for l in lines:
+#         if 'TYPE_BEACON' in l:
+#             olines.append(re.sub("(\d{13}\tTYPE_)", "\n\\1", l).lstrip())
+#         else:
+#             olines.append(l)
+
+#     out_file = pathlib.Path(str(path_file).replace(str(base_path), str(output_path)))
+#     out_file.parent.mkdir(parents=True, exist_ok=True)
+#     with open(out_file, 'wt', encoding='utf-8') as f:
+#         f.writelines(olines)
+
+# path_files = sorted(base_path.joinpath('test').glob("**/*.txt"))
+# for path_file in tqdm(path_files, desc="path files", ascii=True):
+#     with open(path_file, encoding='utf-8') as f:
+#         lines = f.readlines()
+
+#     olines = []
+#     for l in lines:
+#         if 'TYPE_BEACON' in l:
+#             olines.append(re.sub("(\d{13}\tTYPE_)", "\n\\1", l).lstrip())
+#         else:
+#             olines.append(l)
+
+#     out_file = pathlib.Path(str(path_file).replace(str(base_path), str(output_path)))
+#     out_file.parent.mkdir(parents=True, exist_ok=True)
+#     with open(out_file, 'wt', encoding='utf-8') as f:
+#         f.writelines(olines)
+
 # # get only the wifi bssid that occur over 1000 times(this number can be experimented with)
 # # these will be the only ones used when constructing features
-# bssid = dict()
+# wifi_id_per_site = dict()
+# beacon_id_per_site = dict()
 
-elapsed_timer = ElapsedTimer()
-# for i, building in enumerate(used_buildings):
-#     # break
-#     folders = sorted(glob.glob(os.path.join(base_path,'train\\'+building+'\\*')))
-#     print(building)
-#     wifi = list()
-#     for folder in folders:
-#         floor = floor_map[folder.split('\\')[-1]]
-#         files = glob.glob(os.path.join(folder, "*.txt"))
-#         for file in files:
-#             with open(file, encoding='utf-8') as f:
-#                 txt = f.readlines()
-#                 for e, line in enumerate(txt):
-#                     tmp = line.strip().split()
-#                     if tmp[1] == "TYPE_WIFI":
-#                         wifi.append(tmp)
-#     df = pd.DataFrame(wifi)
-#     #top_bssid = df[3].value_counts().iloc[:500].index.tolist()
-#     value_counts = df[3].value_counts()
-#     # top_bssid = value_counts[value_counts > 1000].index.tolist()
-#     top_bssid = value_counts.index.tolist()
-#     print(len(top_bssid))
-#     bssid[building] = top_bssid
-#     del df
-#     del wifi
-#     gc.collect()
+# for i, site in enumerate(used_sites):
+#     wifi_id_hashset = set()
+#     beacon_id_hashset = set()
+#     floor_dir_list = sorted(output_path.joinpath('train', site).glob("*"))
+#     for floor in floor_dir_list:
+#         floor_num = floor_map[floor.name]
+#         path_files = floor.glob("*.txt")
+#         for path_file in path_files:
+#             with open(path_file, encoding='utf-8') as f:
+#                 lines = f.readlines()
+#                 wifi_id = [l.strip().split()[3] for l in lines if 'TYPE_WIFI' in l]
+#                 beacon_id = [f"{l.strip().split()[2]}_{l.strip().split()[3]}" for l in lines if 'TYPE_BEACON' in l]
+#                 wifi_id_hashset |= set(wifi_id)
+#                 beacon_id_hashset |= set(beacon_id)
+#     wifi_id_per_site[site] = sorted(list(wifi_id_hashset))
+#     beacon_id_per_site[site] = sorted(list(beacon_id_hashset))
+#     print(f"site={i+1}/{len(used_sites)}, wifi_num={len(wifi_id_hashset)}, beacon_num={len(beacon_id_hashset)}, elapsed_time={elapsed_timer.get()}")
 
-#     print(f"site={i+1}/{len(used_buildings)}, elapsed_time={elapsed_timer.get()}")
+# with open(output_path.joinpath("wifi_id_per_site_fix.json"), "w") as f:
+#     json.dump(wifi_id_per_site, f)
+# with open(output_path.joinpath("beacon_id_per_site_fix.json"), "w") as f:
+#     json.dump(beacon_id_per_site, f)
 
-# with open("bssid_all.json", "w") as f:
-#     json.dump(bssid, f)
+with open(output_path.joinpath("wifi_id_per_site_fix.json")) as f:
+    wifi_id_per_site = json.load(f)
+# with open(output_path.joinpath("beacon_id_per_site.json")) as f:
+#     beacon_id_per_site = json.load(f)
 
-# with open("bssid_all.json") as f:
-#     bssid = json.load(f)
+# generate all the training data 
+for i, site in enumerate(used_sites):
 
-# # generate all the training data 
-# building_dfs = dict()
+    floor_dir_list = sorted(output_path.joinpath('train', site).glob("*"))
+    wifi_id = sorted(wifi_id_per_site[site])
 
-# for i, building in enumerate(used_buildings):
-#     # break
-#     folders = sorted(glob.glob(os.path.join(base_path,'train', building +'\\*')))
-#     dfs = list()
-#     index = sorted(bssid[building]) # all bssid on this site
-#     print(building)
-#     for folder in folders:
-#         floor = floor_map[folder.split('\\')[-1]]
-#         files = glob.glob(os.path.join(folder, "*.txt"))
-#         print(floor)
-#         for file in files:
-#             wifi = list()
-#             waypoint = list()
-#             with open(file, encoding='utf-8') as f:
-#                 txt = f.readlines()
-#             for line in txt:
-#                 line = line.strip().split()
-#                 if line[1] == "TYPE_WAYPOINT":
-#                     waypoint.append(line)
-#                 if line[1] == "TYPE_WIFI":
-#                     wifi.append(line)
+    # count wifi lines
+    wifi_lines_num = 0
+    for floor in floor_dir_list:
+        floor_num = floor_map[floor.name]
+        path_files = floor.glob("*.txt")
+        for path_file in path_files:
+            with open(path_file, encoding='utf-8') as f:
+                lines = f.readlines()
 
-#             df = pd.DataFrame(np.array(wifi))    
+            wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
+            if len(wifi_lines)==0:
+                continue
 
-#             # generate a feature, and label for each wifi block
-#             for gid, g in df.groupby(0):
-#                 dists = list()
-#                 for e, k in enumerate(waypoint):
-#                     dist = abs(int(gid) - int(k[0]))
-#                     dists.append(dist)
-#                 nearest_wp_index = np.argmin(dists)
+            wifi_df = pd.DataFrame(wifi_lines)
+            wifi_lines_num = wifi_lines_num + len(wifi_df.groupby(0).count())
+
+    # create dataframe
+    wifi_feats_np = np.zeros((wifi_lines_num, len(wifi_id) + 3)).astype(np.float32)
+    wifi_lines_index = 0
+    path_files_all = []
+    
+    rssi_init = OrderedDict(zip(wifi_id, [-999]*len(wifi_id)))
+    for floor in floor_dir_list:
+        floor_num = floor_map[floor.name]
+        path_files = floor.glob("*.txt")
+
+        for path_file in path_files:
+            with open(path_file, encoding='utf-8') as f:
+                lines = f.readlines()
+
+            wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
+            waypoint_lines = [l.strip().split() for l in lines if 'TYPE_WAYPOINT' in l] 
+
+            if len(wifi_lines)==0:
+                continue
+
+            wifi_df = pd.DataFrame(wifi_lines)
+            waypoint_df = pd.DataFrame(waypoint_lines)
+
+            # generate a feature, and label for each wifi block
+            for timestamp, group in wifi_df.groupby(0):
+                nearest_wp_index = np.argmin(np.abs(int(timestamp) - waypoint_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
+
+                rssi = rssi_init.copy()
+                rssi.update(dict(zip(group.values[:,3], group.values[:,4])))
                 
-#                 g = g.drop_duplicates(subset=3)
-#                 tmp = g.iloc[:,3:5] # bssid and rssi
-#                 feat = tmp.set_index(3).reindex(index).replace(np.nan, -999).T
-#                 feat["x"] = float(waypoint[nearest_wp_index][2])
-#                 feat["y"] = float(waypoint[nearest_wp_index][3])
-#                 feat["f"] = floor
-#                 feat["path"] = file.split('\\')[-1].split('.')[0] # useful for crossvalidation
-#                 dfs.append(feat)
-                
-#     building_df = pd.concat(dfs)
-#     building_dfs[building] = df
-#     building_df.to_csv(building+"_all_train.csv")
+                wifi_feats_np[wifi_lines_index,:-3] = list(rssi.values())
+                wifi_feats_np[wifi_lines_index,-3] = float(waypoint_df[2][nearest_wp_index])
+                wifi_feats_np[wifi_lines_index,-2] = float(waypoint_df[3][nearest_wp_index])
+                wifi_feats_np[wifi_lines_index,-1] = floor_num
+                path_files_all.append(path_file.stem) # useful for crossvalidation
 
-#     print(f"site={i+1}/{len(used_buildings)}, elapsed_time={elapsed_timer.get()}")
+                wifi_lines_index = wifi_lines_index + 1
 
-# # Generate the features for the test set
-# ssubm_building_g = ssubm_df.groupby(0)
-# feature_dict = dict()
+    columns = wifi_id
+    columns.extend(["x", "y", "f"])
+    feature_df = pd.DataFrame(wifi_feats_np, columns=columns)
+    feature_df["path"] = path_files_all
 
-# for i, (gid0, g0) in enumerate(ssubm_building_g): # loop of site
-#     # break
-#     index = sorted(bssid[g0.iloc[0,0]])
-#     feats = list()
-#     print(gid0)
-#     for gid,g in g0.groupby(1): # loop of path file
+    output_file = output_path.joinpath("wifi_features", f"{site}_train.csv")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_df.to_csv(output_file)
 
-#         # get all wifi time locations, 
-#         with open(os.path.join(base_path, 'test\\' + g.iloc[0,1] + '.txt'), encoding='utf-8') as f:
-#             txt = f.readlines()
+    print(f"site={i+1}/{len(used_sites)}, elapsed_time={elapsed_timer.get()}")
 
-#         wifi = list()
+# Generate the features for the test set
+ssubm_building_g = ssubm_df.groupby(0)
 
-#         for line in txt:
-#             line = line.strip().split()
-#             if line[1] == "TYPE_WIFI":
-#                 wifi.append(line)
+for i, (gid0, g0) in enumerate(ssubm_building_g): # loop of site
+    index = sorted(wifi_id_per_site[g0.iloc[0,0]])
+    feats = list()
+    for gid,g in g0.groupby(1): # loop of path file
 
-#         wifi_df = pd.DataFrame(wifi)
-#         wifi_points = pd.DataFrame(wifi_df.groupby(0).count().index.tolist())
+        # get all wifi time locations, 
+        with open(os.path.join(base_path, 'test\\' + g.iloc[0,1] + '.txt'), encoding='utf-8') as f:
+            txt = f.readlines()
+
+        wifi = list()
+
+        for line in txt:
+            line = line.strip().split()
+            if line[1] == "TYPE_WIFI":
+                wifi.append(line)
+
+        wifi_df = pd.DataFrame(wifi)
+        wifi_points = pd.DataFrame(wifi_df.groupby(0).count().index.tolist())
         
-#         for timepoint in g.iloc[:,2].tolist(): # 
+        for timepoint in g.iloc[:,2].tolist(): # 
 
-#             deltas = (wifi_points.astype(int) - int(timepoint)).abs()
-#             min_delta_idx = deltas.values.argmin()
-#             wifi_block_timestamp = wifi_points.iloc[min_delta_idx].values[0]
+            deltas = (wifi_points.astype(int) - int(timepoint)).abs()
+            min_delta_idx = deltas.values.argmin()
+            wifi_block_timestamp = wifi_points.iloc[min_delta_idx].values[0]
             
-#             wifi_block = wifi_df[wifi_df[0] == wifi_block_timestamp].drop_duplicates(subset=3)
-#             feat = wifi_block.set_index(3)[4].reindex(index).fillna(-999)
+            wifi_block = wifi_df[wifi_df[0] == wifi_block_timestamp].drop_duplicates(subset=3)
+            feat = wifi_block.set_index(3)[4].reindex(index).fillna(-999)
 
-#             feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
-#             feats.append(feat)
-#     feature_df = pd.concat(feats, axis=1).T
-#     feature_df.to_csv(gid0+"_all_test.csv")
-#     feature_dict[gid0] = feature_df
+            feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
+            feats.append(feat)
+    feature_df = pd.concat(feats, axis=1).T
 
-#     print(f"site={i+1}/{len(ssubm_building_g)}, elapsed_time={elapsed_timer.get()}")
+    output_file = output_path.joinpath("wifi_features", f"{gid0}_test.csv")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_df.to_csv(output_file)
+
+    print(f"site={i+1}/{len(ssubm_building_g)}, elapsed_time={elapsed_timer.get()}")
 
 # N_SPLITS = 10
 # SEED = 42
