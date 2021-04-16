@@ -245,6 +245,8 @@ feature_dir = output_path.joinpath("wifi_features")
 # get our train and test files
 train_files = sorted(feature_dir.glob('*_train.csv'))
 test_files = sorted(feature_dir.glob('*_test.csv'))
+ssubm = pd.read_csv(base_path.joinpath('sample_submission.csv'), index_col=0)
+
 
 lgb_params = {'objective': 'root_mean_squared_error',
               'boosting_type': 'gbdt',
