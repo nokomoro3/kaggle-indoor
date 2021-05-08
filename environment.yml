@@ -1,5 +1,6 @@
 name: indoor
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -13,3 +14,10 @@ dependencies:
   - python-kaleido
   - scikit-learn
   - lightgbm
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cudatoolkit=10.2
+  - pytorch-lightning
+  - icecream
+  - neptune-client

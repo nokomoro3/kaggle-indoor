@@ -94,6 +94,7 @@
 | 2021-04-14-003 | 13.839 | 13.283 | lgbm parameter adjustment |
 | 2021-04-14-004 |  5.137 | 12.836 | GroupFold -> KFold |
 | 2021-04-14-004 |  3.450 |  8.333 | upper 1000 -> all |
+| 2021-04-16-001 |  3.455 |  8.264 | wifi features recalc me |
 
 ## 参考ベースライン
 
@@ -117,3 +118,11 @@
 
 - データは以下に公開されている。
   - https://www.kaggle.com/hiro5299834/indoor-navigation-and-location-wifi-features
+
+### wifi features sort highest rssi
+
+- 生成するコード
+  - https://www.kaggle.com/kokitanisaka/create-unified-wifi-features-example
+- データ
+  - https://www.kaggle.com/kokitanisaka/indoorunifiedwifids
+- これにより、一つのモデルで全建物を推定するモデルが作成できる。
