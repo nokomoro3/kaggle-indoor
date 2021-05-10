@@ -70,11 +70,11 @@ def main():
     ic(idm.wifi_bssids_size)
     ic(idm.site_id_dim)
     
-    model_path_0 = os.path.join(Config.SAVE_DIR, '0/epoch=35-val_loss=6.36-val_metric=6.36.pth.ckpt')
-    model_path_1 = os.path.join(Config.SAVE_DIR, '1/epoch=51-val_loss=6.59-val_metric=6.59.pth.ckpt')
-    model_path_2 = os.path.join(Config.SAVE_DIR, '2/epoch=36-val_loss=6.40-val_metric=6.40.pth.ckpt')
-    model_path_3 = os.path.join(Config.SAVE_DIR, '3/epoch=48-val_loss=6.60-val_metric=6.60.pth.ckpt')
-    model_path_4 = os.path.join(Config.SAVE_DIR, '4/epoch=41-val_loss=6.46-val_metric=6.46.pth.ckpt')
+    model_path_0 = os.path.join(Config.SAVE_DIR, '0/epoch=24-val_loss=5.78-val_metric=5.78.pth.ckpt')
+    model_path_1 = os.path.join(Config.SAVE_DIR, '1/epoch=42-val_loss=5.55-val_metric=5.55.pth.ckpt')
+    model_path_2 = os.path.join(Config.SAVE_DIR, '2/epoch=40-val_loss=5.70-val_metric=5.70.pth.ckpt')
+    model_path_3 = os.path.join(Config.SAVE_DIR, '3/epoch=48-val_loss=5.71-val_metric=5.71.pth.ckpt')
+    model_path_4 = os.path.join(Config.SAVE_DIR, '4/epoch=31-val_loss=5.93-val_metric=5.93.pth.ckpt')
     
     
     model0 = IndoorLocModel.load_from_checkpoint(model_path_0, model=SeqLSTM(
@@ -117,7 +117,7 @@ def main():
     # overwrite floor model
     # ref. https://www.kaggle.com/saitodevel01/indoor-post-processing-by-cost-minimization/data
     #-------------------------------------------------
-    submit = pd.read_csv("data/submission-99percent-accurate-floor-model.csv")
+    b = pd.read_csv("data/submission-99percent-accurate-floor-model.csv")
     submit['floor'] = b['floor']
     dt = datetime.now()
     date_string = dt.strftime("%Y-%m-%d-%H%M%S")

@@ -21,3 +21,5 @@ dependencies:
   - pytorch-lightning
   - icecream
   - neptune-client
+  - tensorboard
+  - opencv

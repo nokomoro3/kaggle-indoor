@@ -20,6 +20,7 @@ from multiprocessing import Pool
 import pickle
 
 from sample.io_f import read_data_file
+from sample.compute_f import compute_step_positions
 from utils.utils import time_function
 
 class ElapsedTimer():
@@ -50,7 +51,7 @@ def extract_high_rssi_feature(input_file, output_dir, test_flag=False):
     output_feats = []
     if test_flag == False: # train
         for i in range(num_of_lines):  
-            tmp = input_feats_df.iloc[i,1:-4].astype(int).sort_values(ascending=False).head(ITEMS_TO_TAKE) # RSSI順に100個を抽出
+            tmp = input_feats_df.iloc[i,1:-5].astype(int).sort_values(ascending=False).head(ITEMS_TO_TAKE) # RSSI順に100個を抽出
             target = input_feats_df.iloc[i,-4:]
             line = [*tmp.index.astype(str), *tmp.values, *target] # 100個のbssid名、100個それぞれのrssi値、正解位置を結合
             output_feats.append(line)
@@ -70,6 +71,137 @@ def extract_high_rssi_feature(input_file, output_dir, test_flag=False):
 
     output_feats_df.to_csv(output_file)
 
+def calc_wifi_beacon_feature_wrapper(args):
+    return calc_wifi_beacon_feature(*args)
+
+@time_function
+def calc_wifi_beacon_feature(output_path, site, wifi_id_per_site, beacon_id_per_site, floor_map):
+
+    floor_dir_list = sorted(output_path.joinpath('train', site).glob("*"))
+    wifi_id = sorted(wifi_id_per_site[site])
+    beacon_id = sorted(beacon_id_per_site[site])
+
+    # count wifi lines (coutn only)
+    wifi_lines_num = 0
+    beacon_lines_num = 0
+    for floor in floor_dir_list:
+        floor_num = floor_map[floor.name]
+        path_files = floor.glob("*.txt")
+        for path_file in path_files:
+            with open(path_file, encoding='utf-8') as f:
+                lines = f.readlines()
+
+            wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
+            if len(wifi_lines)>0:
+                wifi_df = pd.DataFrame(wifi_lines)
+                wifi_lines_num = wifi_lines_num + len(wifi_df.groupby(0).count())
+
+            beacon_lines = [l.strip().split() for l in lines if 'TYPE_BEACON' in l]
+            if len(beacon_lines)>0:
+                beacon_df = pd.DataFrame(beacon_lines)
+                beacon_lines_num = beacon_lines_num + len(beacon_df.groupby(0).count())
+
+
+    # create dataframe
+    wifi_feats_np = np.zeros((wifi_lines_num, len(wifi_id) + 4)).astype(np.float32)
+    wifi_lines_index = 0
+    wifi_path_files_all = []
+    beacon_feats_np = np.zeros((beacon_lines_num, len(beacon_id) + 4)).astype(np.float32)
+    beacon_lines_index = 0
+    beacon_path_files_all = []
+    
+    wifi_rssi_init = OrderedDict(zip(wifi_id, [-999]*len(wifi_id)))
+    beacon_rssi_init = OrderedDict(zip(beacon_id, [-999]*len(beacon_id)))
+    for floor in floor_dir_list:
+        floor_num = floor_map[floor.name]
+        path_files = floor.glob("*.txt")
+
+        for path_file in path_files:
+
+            path_datas = read_data_file(path_file)
+            acce_datas = path_datas.acce       # TYPE_ACCELEROMETER
+            # magn_datas = path_datas.magn       # TYPE_MAGNETIC_FIELD
+            ahrs_datas = path_datas.ahrs       # TYPE_ROTATION_VECTOR
+            # wifi_datas = path_datas.wifi       # TYPE_WIFI
+            # ibeacon_datas = path_datas.ibeacon # TYPE_BEACON
+            posi_datas = path_datas.waypoint   # TYPE_WAYPOINT
+
+            # 加速度センサ、回転ベクトル、正解位置から1stepの位置を計算
+            step_positions = compute_step_positions(acce_datas, ahrs_datas, posi_datas)
+            with open(path_file, encoding='utf-8') as f:
+                lines = f.readlines()
+
+            wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
+            beacon_lines = [l.strip().split() for l in lines if 'TYPE_BEACON' in l]
+            waypoint_lines = [l.strip().split() for l in lines if 'TYPE_WAYPOINT' in l] 
+
+            # waypoint_df = pd.DataFrame(waypoint_lines)
+            step_position_df = pd.DataFrame(step_positions)
+
+            if len(wifi_lines)>0:
+                wifi_df = pd.DataFrame(wifi_lines)
+
+                # generate a feature, and label for each wifi block
+                for timestamp, group in wifi_df.groupby(0):
+                    # nearest_wp_index = np.argmin(np.abs(int(timestamp) - waypoint_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
+                    nearest_wp_index = np.argmin(np.abs(int(timestamp) - step_position_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
+
+                    rssi = wifi_rssi_init.copy()
+                    rssi.update(dict(zip(group.values[:,3], group.values[:,4])))
+                    
+                    wifi_feats_np[wifi_lines_index,:-4] = list(rssi.values())
+                    wifi_feats_np[wifi_lines_index,-4] = float(timestamp)
+                    # wifi_feats_np[wifi_lines_index,-3] = float(waypoint_df[2][nearest_wp_index])
+                    # wifi_feats_np[wifi_lines_index,-2] = float(waypoint_df[3][nearest_wp_index])
+                    wifi_feats_np[wifi_lines_index,-3] = float(step_position_df[1][nearest_wp_index])
+                    wifi_feats_np[wifi_lines_index,-2] = float(step_position_df[2][nearest_wp_index])
+                    wifi_feats_np[wifi_lines_index,-1] = floor_num
+                    wifi_path_files_all.append(path_file.stem) # useful for crossvalidation
+
+
+                    wifi_lines_index = wifi_lines_index + 1
+
+            if len(beacon_lines)>0:
+                beacon_df = pd.DataFrame(beacon_lines)
+
+                # generate a feature, and label for each beacon block
+                for timestamp, group in beacon_df.groupby(0):
+                    # nearest_wp_index = np.argmin(np.abs(int(timestamp) - waypoint_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
+                    nearest_wp_index = np.argmin(np.abs(int(timestamp) - step_position_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
+
+                    ids = [f'{i[3]}_{i[4]}' for i in group.values]
+                    rssi = beacon_rssi_init.copy()
+                    rssi.update(dict(zip(ids, group.values[:,6])))
+                    
+                    beacon_feats_np[beacon_lines_index,:-4] = list(rssi.values())
+                    beacon_feats_np[beacon_lines_index,-4] = float(timestamp)
+                    # beacon_feats_np[beacon_lines_index,-3] = float(waypoint_df[2][nearest_wp_index])
+                    # beacon_feats_np[beacon_lines_index,-2] = float(waypoint_df[3][nearest_wp_index])
+                    beacon_feats_np[beacon_lines_index,-3] = float(step_position_df[1][nearest_wp_index])
+                    beacon_feats_np[beacon_lines_index,-2] = float(step_position_df[2][nearest_wp_index])
+                    beacon_feats_np[beacon_lines_index,-1] = floor_num
+                    beacon_path_files_all.append(path_file.stem) # useful for crossvalidation
+
+                    beacon_lines_index = beacon_lines_index + 1
+
+    columns = wifi_id
+    columns.extend(["timestamp", "x", "y", "f"])
+    feature_df = pd.DataFrame(wifi_feats_np, columns=columns)
+    feature_df["path"] = wifi_path_files_all
+    output_file = output_path.joinpath("indoor-navigation-and-location-wifi-features-2021-05-09", f"{site}_train.csv")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_df.to_csv(output_file)
+
+    columns = beacon_id
+    columns.extend(["timestamp", "x", "y", "f"])
+    feature_df = pd.DataFrame(beacon_feats_np, columns=columns)
+    feature_df["path"] = beacon_path_files_all
+    output_file = output_path.joinpath("indoor-navigation-and-location-beacon-features-2021-05-09", f"{site}_train.csv")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    feature_df.to_csv(output_file)
+
+    return
+
 def main():
     base_path = pathlib.Path('indata')
     output_path = pathlib.Path('outdata')
@@ -88,8 +220,10 @@ def main():
                 "1F":0, "2F":1, "3F":2, "4F":3, "5F":4, "6F":5, "7F":6, "8F": 7, "9F":8}
 
     elapsed_timer = ElapsedTimer()
-    elapsed_timer.get()
 
+    # #------------------------------------------------
+    # # fix end of line CRLF code missing
+    # #------------------------------------------------
     # path_files = sorted(base_path.joinpath('train').glob("**/*.txt"))
     # for path_file in tqdm(path_files, desc="path files", ascii=True):
     #     with open(path_file, encoding='utf-8') as f:
@@ -124,11 +258,12 @@ def main():
     #     with open(out_file, 'wt', encoding='utf-8') as f:
     #         f.writelines(olines)
 
-    # # get only the wifi bssid that occur over 1000 times(this number can be experimented with)
-    # # these will be the only ones used when constructing features
+    # #------------------------------------------------
+    # # extract unique ssids each sites
+    # #------------------------------------------------
+    # elapsed_timer.get()
     # wifi_id_per_site = dict()
     # beacon_id_per_site = dict()
-
     # for i, site in enumerate(used_sites):
     #     wifi_id_hashset = set()
     #     beacon_id_hashset = set()
@@ -140,7 +275,7 @@ def main():
     #             with open(path_file, encoding='utf-8') as f:
     #                 lines = f.readlines()
     #                 wifi_id = [l.strip().split()[3] for l in lines if 'TYPE_WIFI' in l]
-    #                 beacon_id = [f"{l.strip().split()[2]}_{l.strip().split()[3]}" for l in lines if 'TYPE_BEACON' in l]
+    #                 beacon_id = [f"{l.strip().split()[3]}_{l.strip().split()[4]}" for l in lines if 'TYPE_BEACON' in l]
     #                 wifi_id_hashset |= set(wifi_id)
     #                 beacon_id_hashset |= set(beacon_id)
     #     wifi_id_per_site[site] = sorted(list(wifi_id_hashset))
@@ -152,88 +287,29 @@ def main():
     # with open(output_path.joinpath("beacon_id_per_site.json"), "w") as f:
     #     json.dump(beacon_id_per_site, f)
 
-    # with open(output_path.joinpath("wifi_id_per_site.json")) as f:
-    #     wifi_id_per_site = json.load(f)
-    # with open(output_path.joinpath("beacon_id_per_site.json")) as f:
-    #     beacon_id_per_site = json.load(f)
+    with open(output_path.joinpath("wifi_id_per_site.json")) as f:
+        wifi_id_per_site = json.load(f)
+    with open(output_path.joinpath("beacon_id_per_site.json")) as f:
+        beacon_id_per_site = json.load(f)
 
-    # # generate all the training data 
-    # for i, site in enumerate(used_sites):
+    # #-----------------------------------------------
+    # # calc wifi and beacon feature (train)
+    # #-----------------------------------------------
+    # num_cores = multiprocessing.cpu_count()
+    # with Pool(num_cores) as pool:
+    #     pool.map(calc_wifi_beacon_feature_wrapper, [ [output_path, site, wifi_id_per_site, beacon_id_per_site, floor_map] for site in used_sites])
 
-    #     floor_dir_list = sorted(output_path.joinpath('train', site).glob("*"))
-    #     wifi_id = sorted(wifi_id_per_site[site])
-
-    #     # count wifi lines
-    #     wifi_lines_num = 0
-    #     for floor in floor_dir_list:
-    #         floor_num = floor_map[floor.name]
-    #         path_files = floor.glob("*.txt")
-    #         for path_file in path_files:
-    #             with open(path_file, encoding='utf-8') as f:
-    #                 lines = f.readlines()
-
-    #             wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
-    #             if len(wifi_lines)==0:
-    #                 continue
-
-    #             wifi_df = pd.DataFrame(wifi_lines)
-    #             wifi_lines_num = wifi_lines_num + len(wifi_df.groupby(0).count())
-
-    #     # create dataframe
-    #     wifi_feats_np = np.zeros((wifi_lines_num, len(wifi_id) + 3)).astype(np.float32)
-    #     wifi_lines_index = 0
-    #     path_files_all = []
-        
-    #     rssi_init = OrderedDict(zip(wifi_id, [-999]*len(wifi_id)))
-    #     for floor in floor_dir_list:
-    #         floor_num = floor_map[floor.name]
-    #         path_files = floor.glob("*.txt")
-
-    #         for path_file in path_files:
-    #             with open(path_file, encoding='utf-8') as f:
-    #                 lines = f.readlines()
-
-    #             wifi_lines = [l.strip().split() for l in lines if 'TYPE_WIFI' in l]
-    #             waypoint_lines = [l.strip().split() for l in lines if 'TYPE_WAYPOINT' in l] 
-
-    #             if len(wifi_lines)==0:
-    #                 continue
-
-    #             wifi_df = pd.DataFrame(wifi_lines)
-    #             waypoint_df = pd.DataFrame(waypoint_lines)
-
-    #             # generate a feature, and label for each wifi block
-    #             for timestamp, group in wifi_df.groupby(0):
-    #                 nearest_wp_index = np.argmin(np.abs(int(timestamp) - waypoint_df[0].values.astype(np.int64))) # TODO: step_positionから探す方が良い気がする。
-
-    #                 rssi = rssi_init.copy()
-    #                 rssi.update(dict(zip(group.values[:,3], group.values[:,4])))
-                    
-    #                 wifi_feats_np[wifi_lines_index,:-3] = list(rssi.values())
-    #                 wifi_feats_np[wifi_lines_index,-3] = float(waypoint_df[2][nearest_wp_index])
-    #                 wifi_feats_np[wifi_lines_index,-2] = float(waypoint_df[3][nearest_wp_index])
-    #                 wifi_feats_np[wifi_lines_index,-1] = floor_num
-    #                 path_files_all.append(path_file.stem) # useful for crossvalidation
-
-    #                 wifi_lines_index = wifi_lines_index + 1
-
-    #     columns = wifi_id
-    #     columns.extend(["x", "y", "f"])
-    #     feature_df = pd.DataFrame(wifi_feats_np, columns=columns)
-    #     feature_df["path"] = path_files_all
-
-    #     output_file = output_path.joinpath("indoor-navigation-and-location-wifi-features", f"{site}_train.csv")
-    #     output_file.parent.mkdir(parents=True, exist_ok=True)
-    #     feature_df.to_csv(output_file)
-
-    #     print(f"site={i+1}/{len(used_sites)}, elapsed_time={elapsed_timer.get()}")
-
+    # #-----------------------------------------------
+    # # calc wifi and beacon feature (test)
+    # #-----------------------------------------------
     # # Generate the features for the test set
     # ssubm_building_g = ssubm_df.groupby(0)
 
     # for i, (gid0, g0) in enumerate(ssubm_building_g): # loop of site
-    #     index = sorted(wifi_id_per_site[g0.iloc[0,0]])
-    #     feats = list()
+    #     wifi_index = sorted(wifi_id_per_site[g0.iloc[0,0]])
+    #     beacon_index = sorted(beacon_id_per_site[g0.iloc[0,0]])
+    #     wifi_feats = list()
+    #     beacon_feats = list()
     #     for gid,g in g0.groupby(1): # loop of path file
 
     #         # get all wifi time locations, 
@@ -241,49 +317,72 @@ def main():
     #             txt = f.readlines()
 
     #         wifi = list()
+    #         beacon = list()
 
     #         for line in txt:
     #             line = line.strip().split()
     #             if line[1] == "TYPE_WIFI":
     #                 wifi.append(line)
+    #             if line[1] == "TYPE_BEACON":
+    #                 beacon.append(line)
 
     #         wifi_df = pd.DataFrame(wifi)
-    #         wifi_points = pd.DataFrame(wifi_df.groupby(0).count().index.tolist())
-            
+    #         beacon_df = pd.DataFrame(beacon)
+
     #         for timepoint in g.iloc[:,2].tolist(): # 
 
-    #             deltas = (wifi_points.astype(int) - int(timepoint)).abs()
-    #             min_delta_idx = deltas.values.argmin()
-    #             wifi_block_timestamp = wifi_points.iloc[min_delta_idx].values[0]
-                
-    #             wifi_block = wifi_df[wifi_df[0] == wifi_block_timestamp].drop_duplicates(subset=3)
-    #             feat = wifi_block.set_index(3)[4].reindex(index).fillna(-999)
+    #             # wifi
+    #             if len(wifi_df) > 0:
+    #                 wifi_points = pd.DataFrame(wifi_df.groupby(0).count().index.tolist())
+    #                 deltas = (wifi_points.astype(int) - int(timepoint)).abs()
+    #                 min_delta_idx = deltas.values.argmin()
+    #                 wifi_block_timestamp = wifi_points.iloc[min_delta_idx].values[0]
+    #                 wifi_block = wifi_df[wifi_df[0] == wifi_block_timestamp].drop_duplicates(subset=3)
+    #                 wifi_feat = wifi_block.set_index(3)[4].reindex(wifi_index).fillna(-999)
+    #             else:
+    #                 wifi_feat = pd.DataFrame([-999]*len(wifi_index), index=wifi_index)
+    #             wifi_feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
+    #             wifi_feats.append(wifi_feat)
 
-    #             feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
-    #             feats.append(feat)
-    #     feature_df = pd.concat(feats, axis=1).T
+    #             # beacon
+    #             if len(beacon_df) > 0:
+    #                 beacon_points = pd.DataFrame(beacon_df.groupby(0).count().index.tolist())
+    #                 deltas = (beacon_points.astype(int) - int(timepoint)).abs()
+    #                 min_delta_idx = deltas.values.argmin()
+    #                 beacon_block_timestamp = beacon_points.iloc[min_delta_idx].values[0]
+    #                 beacon_block = beacon_df[beacon_df[0] == beacon_block_timestamp].drop_duplicates(subset=3)
+    #                 beacon_feat = beacon_block.set_index(3)[6].reindex(beacon_index).fillna(-999)
+    #             else:
+    #                 beacon_feat = pd.DataFrame([-999]*len(beacon_index), index=beacon_index)
+    #             beacon_feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
+    #             beacon_feats.append(beacon_feat)
 
-    #     output_file = output_path.joinpath("indoor-navigation-and-location-wifi-features", f"{gid0}_test.csv")
+    #     feature_df = pd.concat(wifi_feats, axis=1).T
+    #     output_file = output_path.joinpath("indoor-navigation-and-location-wifi-features-2021-05-09", f"{gid0}_test.csv")
+    #     output_file.parent.mkdir(parents=True, exist_ok=True)
+    #     feature_df.to_csv(output_file)
+
+    #     feature_df = pd.concat(wifi_feats, axis=1).T
+    #     output_file = output_path.joinpath("indoor-navigation-and-location-beacon-features-2021-05-09", f"{gid0}_test.csv")
     #     output_file.parent.mkdir(parents=True, exist_ok=True)
     #     feature_df.to_csv(output_file)
 
     #     print(f"site={i+1}/{len(ssubm_building_g)}, elapsed_time={elapsed_timer.get()}")
 
-
     #-----------------------------
     # extract unified wifi ids
     #-----------------------------
-    # num_cores = multiprocessing.cpu_count()
+    num_cores = multiprocessing.cpu_count()
 
-    # feature_src_dir = output_path.joinpath("indoor-navigation-and-location-wifi-features")
-    # train_files = sorted(feature_src_dir.glob('*_train.csv'))
-    # test_files = sorted(feature_src_dir.glob('*_test.csv'))
-    feature_dst_dir = output_path.joinpath("indoor-unified-wifids")
+    feature_src_dir = output_path.joinpath("indoor-navigation-and-location-wifi-features-2021-05-09")
+    train_files = sorted(feature_src_dir.glob('*_train.csv'))
+    test_files = sorted(feature_src_dir.glob('*_test.csv'))
+    feature_dst_dir = output_path.joinpath("indoor-unified-wifids-2021-05-09")
 
-    # with Pool(num_cores) as pool:
-    #     pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir] for t in train_files])
-    # with Pool(num_cores) as pool:
-    #     pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir, True] for t in test_files])
+    with Pool(num_cores) as pool:
+        pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir] for t in train_files])
+    with Pool(num_cores) as pool:
+        pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir, True] for t in test_files])
 
     # merge all csv
     for name in ["train", "test"]:
@@ -298,6 +397,9 @@ def main():
         merge_df.to_csv(feature_dst_dir.joinpath(f"{name}_all.csv"))
         merge_df.to_pickle(feature_dst_dir.joinpath(f"{name}_all.pkl"))
 
+    # #-----------------------------
+    # # train lightGBM
+    # #-----------------------------
     # N_SPLITS = 10
     # SEED = 42
 
