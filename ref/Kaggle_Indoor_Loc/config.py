@@ -4,7 +4,7 @@ class Config():
     
     seed = 42
     epochs = 300
-    num_wifi_feats = 20
+    num_wifi_feats = 80
     fold_num = 5
     train_batch_size = 256
     val_batch_size = 256

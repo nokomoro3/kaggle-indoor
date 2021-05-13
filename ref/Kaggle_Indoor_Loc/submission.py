@@ -70,11 +70,11 @@ def main():
     ic(idm.wifi_bssids_size)
     ic(idm.site_id_dim)
     
-    model_path_0 = os.path.join(Config.SAVE_DIR, '0/epoch=24-val_loss=5.78-val_metric=5.78.pth.ckpt')
-    model_path_1 = os.path.join(Config.SAVE_DIR, '1/epoch=42-val_loss=5.55-val_metric=5.55.pth.ckpt')
-    model_path_2 = os.path.join(Config.SAVE_DIR, '2/epoch=40-val_loss=5.70-val_metric=5.70.pth.ckpt')
-    model_path_3 = os.path.join(Config.SAVE_DIR, '3/epoch=48-val_loss=5.71-val_metric=5.71.pth.ckpt')
-    model_path_4 = os.path.join(Config.SAVE_DIR, '4/epoch=31-val_loss=5.93-val_metric=5.93.pth.ckpt')
+    model_path_0 = os.path.join(Config.SAVE_DIR, '0/epoch=38-val_loss=5.15-val_metric=5.15.pth.ckpt')
+    model_path_1 = os.path.join(Config.SAVE_DIR, '1/epoch=51-val_loss=5.16-val_metric=5.16.pth.ckpt')
+    model_path_2 = os.path.join(Config.SAVE_DIR, '2/epoch=45-val_loss=5.21-val_metric=5.21.pth.ckpt')
+    model_path_3 = os.path.join(Config.SAVE_DIR, '3/epoch=66-val_loss=4.96-val_metric=4.96.pth.ckpt')
+    model_path_4 = os.path.join(Config.SAVE_DIR, '4/epoch=74-val_loss=5.19-val_metric=5.19.pth.ckpt')
     
     
     model0 = IndoorLocModel.load_from_checkpoint(model_path_0, model=SeqLSTM(
