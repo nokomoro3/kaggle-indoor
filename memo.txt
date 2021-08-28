@@ -1,0 +1,262 @@
+site=1/24, elapsed_time=0:00:19.778010
+site=2/24, elapsed_time=0:00:17.578664
+site=3/24, elapsed_time=0:00:46.489633
+site=4/24, elapsed_time=0:00:11.288727
+site=5/24, elapsed_time=0:00:12.816845
+site=6/24, elapsed_time=0:00:05.475338
+site=7/24, elapsed_time=0:00:05.397800
+site=8/24, elapsed_time=0:00:21.351268
+site=9/24, elapsed_time=0:00:23.226467
+site=10/24, elapsed_time=0:00:19.951855
+site=11/24, elapsed_time=0:00:12.995231
+site=12/24, elapsed_time=0:00:13.429904
+site=13/24, elapsed_time=0:00:03.050834
+site=14/24, elapsed_time=0:00:21.345888
+site=15/24, elapsed_time=0:00:14.346234
+site=16/24, elapsed_time=0:00:03.103599
+site=17/24, elapsed_time=0:00:16.422281
+site=18/24, elapsed_time=0:00:08.212878
+site=19/24, elapsed_time=0:00:11.883750
+site=20/24, elapsed_time=0:00:07.800449
+site=21/24, elapsed_time=0:00:29.613047
+site=22/24, elapsed_time=0:00:28.559606
+site=23/24, elapsed_time=0:00:32.103908
+site=24/24, elapsed_time=0:00:23.135814
+
+site=1/24, elapsed_time=0:19:08.588494
+5c3c44b80379370013e0fd2b
+-1
+0
+1
+2
+3
+4
+site=2/24, elapsed_time=0:18:00.176619
+5d27075f03f801723c2e360f
+-1
+0
+1
+2
+3
+4
+5
+6
+site=3/24, elapsed_time=2:15:20.968728
+5d27096c03f801723c31e5e0
+-1
+0
+1
+2
+3
+4
+5
+site=4/24, elapsed_time=0:29:13.474996
+5d27097f03f801723c320d97
+-1
+-2
+0
+1
+2
+3
+4
+site=5/24, elapsed_time=0:16:57.611412
+5d27099f03f801723c32511d
+-1
+0
+1
+2
+3
+site=6/24, elapsed_time=0:02:31.107473
+5d2709a003f801723c3251bf
+0
+1
+2
+3
+site=7/24, elapsed_time=0:02:55.493322
+5d2709b303f801723c327472
+0
+1
+2
+3
+-1
+site=8/24, elapsed_time=0:16:55.885929
+5d2709bb03f801723c32852c
+-1
+0
+1
+2
+3
+site=9/24, elapsed_time=0:29:16.486689
+5d2709c303f801723c3299ee
+0
+1
+2
+3
+4
+5
+6
+7
+8
+-1
+site=10/24, elapsed_time=0:41:37.477861
+5d2709d403f801723c32bd39
+0
+1
+2
+-1
+site=11/24, elapsed_time=0:12:31.169175
+5d2709e003f801723c32d896
+-1
+0
+1
+2
+3
+4
+site=12/24, elapsed_time=0:08:30.007798
+5da138274db8ce0c98bbd3d2
+0
+1
+2
+site=13/24, elapsed_time=0:00:54.579272
+5da1382d4db8ce0c98bbe92e
+-1
+0
+1
+2
+3
+4
+site=14/24, elapsed_time=0:16:39.679086
+5da138314db8ce0c98bbf3a0
+-1
+-2
+0
+1
+2
+site=15/24, elapsed_time=0:06:41.719343
+5da138364db8ce0c98bc00f1
+0
+1
+2
+site=16/24, elapsed_time=0:01:25.574000
+5da1383b4db8ce0c98bc11ab
+0
+1
+2
+site=17/24, elapsed_time=0:11:40.624609
+5da138754db8ce0c98bca82f
+0
+1
+2
+3
+site=18/24, elapsed_time=0:06:51.189710
+5da138764db8ce0c98bcaa46
+-1
+0
+1
+2
+3
+4
+site=19/24, elapsed_time=0:10:18.416243
+5da1389e4db8ce0c98bd0547
+-1
+-2
+0
+1
+2
+3
+site=20/24, elapsed_time=0:03:54.616053
+5da138b74db8ce0c98bd4774
+-1
+-2
+0
+1
+2
+3
+4
+site=21/24, elapsed_time=0:39:02.935880
+5da958dd46f8266d0737457b
+-1
+0
+1
+2
+3
+4
+5
+6
+site=22/24, elapsed_time=0:36:02.909596
+5dbc1d84c1eb61796cf7c010
+-1
+1
+2
+3
+4
+5
+6
+7
+site=23/24, elapsed_time=0:52:50.873503
+5dc8cea7659e181adb076a3f
+-1
+0
+1
+2
+3
+4
+5
+6
+site=24/24, elapsed_time=0:55:58.270272
+5a0546857ecc773753327266
+Traceback (most recent call last):
+  File "C:\Users\snkmr\Desktop\repos\nokomoro3\kaggle-indoor\main.py", line 167, in <module>
+    print(f"site={gid0+1}/{len(ssubm_building_g)}, elapsed_time={elapsed_timer.get()}")
+TypeError: can only concatenate str (not "int") to str
+
+(indoor) C:\Users\snkmr\Desktop\repos\nokomoro3\kaggle-indoor>
+(indoor) C:\Users\snkmr\Desktop\repos\nokomoro3\kaggle-indoor>python main.py
+5a0546857ecc773753327266
+site=1/24, elapsed_time=0:00:04.420973
+5c3c44b80379370013e0fd2b
+site=2/24, elapsed_time=0:00:00.536220
+5d27075f03f801723c2e360f
+site=3/24, elapsed_time=0:00:01.195246
+5d27096c03f801723c31e5e0
+site=4/24, elapsed_time=0:00:08.407545
+5d27097f03f801723c320d97
+site=5/24, elapsed_time=0:00:02.827864
+5d27099f03f801723c32511d
+site=6/24, elapsed_time=0:00:00.581807
+5d2709a003f801723c3251bf
+site=7/24, elapsed_time=0:00:02.337054
+5d2709b303f801723c327472
+site=8/24, elapsed_time=0:00:06.600149
+5d2709bb03f801723c32852c
+site=9/24, elapsed_time=0:00:10.945085
+5d2709c303f801723c3299ee
+site=10/24, elapsed_time=0:00:09.161349
+5d2709d403f801723c32bd39
+site=11/24, elapsed_time=0:00:16.857769
+5d2709e003f801723c32d896
+site=12/24, elapsed_time=0:00:05.282998
+5da138274db8ce0c98bbd3d2
+site=13/24, elapsed_time=0:00:00.797028
+5da1382d4db8ce0c98bbe92e
+site=14/24, elapsed_time=0:00:05.288001
+5da138314db8ce0c98bbf3a0
+site=15/24, elapsed_time=0:00:02.513972
+5da138364db8ce0c98bc00f1
+site=16/24, elapsed_time=0:00:01.318027
+5da1383b4db8ce0c98bc11ab
+site=17/24, elapsed_time=0:00:03.673973
+5da138754db8ce0c98bca82f
+site=18/24, elapsed_time=0:00:04.475381
+5da138764db8ce0c98bcaa46
+site=19/24, elapsed_time=0:00:04.957002
+5da1389e4db8ce0c98bd0547
+site=20/24, elapsed_time=0:00:01.306002
+5da138b74db8ce0c98bd4774
+site=21/24, elapsed_time=0:00:05.802041
+5da958dd46f8266d0737457b
+site=22/24, elapsed_time=0:00:12.313621
+5dbc1d84c1eb61796cf7c010
+site=23/24, elapsed_time=0:00:10.806243
+5dc8cea7659e181adb076a3f
+site=24/24, elapsed_time=0:00:07.316751
