@@ -78,19 +78,19 @@ def main():
     
     
     model0 = IndoorLocModel.load_from_checkpoint(model_path_0, model=SeqLSTM(
-            Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+            Config.num_wifi_feats, idm.wifi_bssids_size, Config.num_beacon_feats, idm.beacon_bssids_size, idm.site_id_dim))
     model0.eval()
     model1 = IndoorLocModel.load_from_checkpoint(model_path_1, model=SeqLSTM(
-            Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+            Config.num_wifi_feats, idm.wifi_bssids_size, Config.num_beacon_feats, idm.beacon_bssids_size, idm.site_id_dim))
     model1.eval()
     model2 = IndoorLocModel.load_from_checkpoint(model_path_2, model=SeqLSTM(
-            Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+            Config.num_wifi_feats, idm.wifi_bssids_size, Config.num_beacon_feats, idm.beacon_bssids_size, idm.site_id_dim))
     model2.eval()
     model3 = IndoorLocModel.load_from_checkpoint(model_path_3, model=SeqLSTM(
-            Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+            Config.num_wifi_feats, idm.wifi_bssids_size, Config.num_beacon_feats, idm.beacon_bssids_size, idm.site_id_dim))
     model3.eval()
     model4 = IndoorLocModel.load_from_checkpoint(model_path_4, model=SeqLSTM(
-            Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+            Config.num_wifi_feats, idm.wifi_bssids_size, Config.num_beacon_feats, idm.beacon_bssids_size, idm.site_id_dim))
     model4.eval()
     
     

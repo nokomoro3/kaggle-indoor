@@ -61,13 +61,15 @@ def train_model(idm: IndoorDataModule, fold: int):
     
     # Init model
     model = IndoorLocModel(SeqLSTM(
-        Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+        Config.num_wifi_feats, idm.wifi_bssids_size, 
+        Config.num_beacon_feats, idm.beacon_bssids_size, 
+        idm.site_id_dim))
 
     # Init callback
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
-        filename='{epoch:02d}-{val_loss:.2f}-{val_metric:.2f}.pth',
+        filename='{epoch:02d}-{train_loss:.2f}-{val_loss:.2f}-{val_metric:.2f}.pth',
         save_top_k=5,
         mode='min',
     )
