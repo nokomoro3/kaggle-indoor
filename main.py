@@ -36,15 +36,17 @@ def extract_high_rssi_feature_wrapper(args):
     return extract_high_rssi_feature(*args)
 
 @time_function
-def extract_high_rssi_feature(input_file, output_dir, test_flag=False):
+def extract_high_rssi_feature(input_file, output_dir, beacon_file, test_flag=False):
 
     ITEMS_TO_TAKE = 100
+    ITEMS_TO_TAKE_BEACON = 100
 
     file_name = input_file.name
     output_file = output_dir.joinpath(file_name)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     input_feats_df = pd.read_csv(input_file)
+    beacon_feats_df = pd.read_csv(beacon_file)
 
     num_of_lines = input_feats_df.shape[0]
 
@@ -52,22 +54,52 @@ def extract_high_rssi_feature(input_file, output_dir, test_flag=False):
     if test_flag == False: # train
         for i in range(num_of_lines):  
             tmp = input_feats_df.iloc[i,1:-5].astype(int).sort_values(ascending=False).head(ITEMS_TO_TAKE) # RSSI順に100個を抽出
+
+            diff = np.abs(beacon_feats_df.iloc[:,-5].values.astype(np.int64) - input_feats_df.iloc[i,-5].astype(np.int64))
+            beacon_idx = np.where(diff == np.min(diff))[0]
+            beacon_rssi = np.mean(beacon_feats_df.iloc[beacon_idx,1:-5].values, axis=0)
+            beacon_rssi_se = pd.Series(beacon_rssi, index=beacon_feats_df.columns[1:-5])
+            tmp2 = beacon_rssi_se.sort_values(ascending=False).head(ITEMS_TO_TAKE_BEACON)
+            tmp2_index = [*tmp2.index.astype(str)] + ['none']*(ITEMS_TO_TAKE_BEACON - len(tmp2)) # 暗黙的にITEMS_TO_MAKE_BEACONを超えないことを用いているので注意
+            tmp2_values = [*tmp2.values] + [-999.0]*(ITEMS_TO_TAKE_BEACON - len(tmp2)) # 暗黙的にITEMS_TO_MAKE_BEACONを超えないことを用いているので注意
+
             target = input_feats_df.iloc[i,-4:]
-            line = [*tmp.index.astype(str), *tmp.values, *target] # 100個のbssid名、100個それぞれのrssi値、正解位置を結合
+            line = [*tmp.index.astype(str), *tmp.values, *tmp2_index, *tmp2_values, *target] # 100個のbssid名、100個それぞれのrssi値、正解位置を結合
             output_feats.append(line)
 
     else: # test
         for i in range(num_of_lines):  
-            tmp = input_feats_df.iloc[i,1:-1].astype(int).sort_values(ascending=False).head(ITEMS_TO_TAKE)
+            tmp = input_feats_df.iloc[i,1:-2].astype(int).sort_values(ascending=False).head(ITEMS_TO_TAKE)
+
+            diff = np.abs(beacon_feats_df.iloc[:,-2].values.astype(np.int64) - input_feats_df.iloc[i,-2].astype(np.int64))
+            beacon_idx = np.where(diff == np.min(diff))[0]
+            beacon_rssi = np.mean(beacon_feats_df.iloc[beacon_idx,1:-2].values, axis=0)
+            beacon_rssi_se = pd.Series(beacon_rssi, index=beacon_feats_df.columns[1:-2])
+            tmp2 = beacon_rssi_se.sort_values(ascending=False).head(ITEMS_TO_TAKE_BEACON)
+            tmp2_index = [*tmp2.index.astype(str)] + ['none']*(ITEMS_TO_TAKE_BEACON - len(tmp2)) # 暗黙的にITEMS_TO_MAKE_BEACONを超えないことを用いているので注意
+            tmp2_values = [*tmp2.values] + [-999.0]*(ITEMS_TO_TAKE_BEACON - len(tmp2)) # 暗黙的にITEMS_TO_MAKE_BEACONを超えないことを用いているので注意
+
             target = input_feats_df.iloc[i, [-1]]
-            line = [*tmp.index.astype(str), *tmp.values, *target]
+            line = [*tmp.index.astype(str), *tmp.values, *tmp2_index, *tmp2_values, *target] # 100個のbssid名、100個それぞれのrssi値、正解位置を結合
             output_feats.append(line)
 
     output_feats_df = pd.DataFrame(output_feats)
     if test_flag == False: # train
-        output_feats_df.columns = [f'bssid_{str(i)}' for i in range(ITEMS_TO_TAKE)] + [f'rssi_{str(i)}' for i in range(ITEMS_TO_TAKE)] + ['x','y','floor','path']
+        output_feats_df.columns = \
+            [f'bssid_{str(i)}' for i in range(ITEMS_TO_TAKE)] + \
+            [f'rssi_{str(i)}' for i in range(ITEMS_TO_TAKE)] + \
+            [f'beacon_id_{str(i)}' for i in range(ITEMS_TO_TAKE_BEACON)] + \
+            [f'beacon_rssi_{str(i)}' for i in range(ITEMS_TO_TAKE_BEACON)] + \
+            ['x','y','floor','path']
     else: # test
-        output_feats_df.columns = [f'bssid_{str(i)}' for i in range(ITEMS_TO_TAKE)] + [f'rssi_{str(i)}' for i in range(ITEMS_TO_TAKE)] + ['site_path_timestamp']
+        output_feats_df.columns = \
+            [f'bssid_{str(i)}' for i in range(ITEMS_TO_TAKE)] + \
+            [f'rssi_{str(i)}' for i in range(ITEMS_TO_TAKE)] + \
+            [f'beacon_id_{str(i)}' for i in range(ITEMS_TO_TAKE_BEACON)] + \
+            [f'beacon_rssi_{str(i)}' for i in range(ITEMS_TO_TAKE_BEACON)] + \
+            ['site_path_timestamp']
+
+    print(len(output_feats_df.columns))
 
     output_feats_df.to_csv(output_file)
 
@@ -341,6 +373,7 @@ def main():
     #                 wifi_feat = wifi_block.set_index(3)[4].reindex(wifi_index).fillna(-999)
     #             else:
     #                 wifi_feat = pd.DataFrame([-999]*len(wifi_index), index=wifi_index)
+    #             wifi_feat["timestamp"] = timepoint
     #             wifi_feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
     #             wifi_feats.append(wifi_feat)
 
@@ -354,6 +387,7 @@ def main():
     #                 beacon_feat = beacon_block.set_index(3)[6].reindex(beacon_index).fillna(-999)
     #             else:
     #                 beacon_feat = pd.DataFrame([-999]*len(beacon_index), index=beacon_index)
+    #             beacon_feat["timestamp"] = timepoint
     #             beacon_feat['site_path_timestamp'] = g.iloc[0,0] + "_" + g.iloc[0,1] + "_" + timepoint
     #             beacon_feats.append(beacon_feat)
 
@@ -375,14 +409,22 @@ def main():
     num_cores = multiprocessing.cpu_count()
 
     feature_src_dir = output_path.joinpath("indoor-navigation-and-location-wifi-features-2021-05-09")
+    feature_src_dir2 = output_path.joinpath("indoor-navigation-and-location-beacon-features-2021-05-09")
     train_files = sorted(feature_src_dir.glob('*_train.csv'))
+    train_files2 = sorted(feature_src_dir2.glob('*_train.csv'))
     test_files = sorted(feature_src_dir.glob('*_test.csv'))
-    feature_dst_dir = output_path.joinpath("indoor-unified-wifids-2021-05-09")
+    test_files2 = sorted(feature_src_dir2.glob('*_test.csv'))
+    feature_dst_dir = output_path.joinpath("indoor-unified-wifids-beaconids-2021-05-11")
+
+    # with Pool(num_cores) as pool:
+    #     pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir, t2] for t,t2 in zip(train_files, train_files2)])
+    # for t,t2 in zip(train_files, train_files2):
+    #     extract_high_rssi_feature(t, feature_dst_dir, t2)
 
     with Pool(num_cores) as pool:
-        pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir] for t in train_files])
-    with Pool(num_cores) as pool:
-        pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir, True] for t in test_files])
+        pool.map(extract_high_rssi_feature_wrapper, [ [t, feature_dst_dir, t2, True] for t,t2 in zip(test_files, test_files2)])
+    # for t,t2 in zip(test_files, test_files2):
+    #     extract_high_rssi_feature(t, feature_dst_dir, t2, True)
 
     # merge all csv
     for name in ["train", "test"]:

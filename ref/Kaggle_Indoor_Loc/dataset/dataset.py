@@ -10,11 +10,13 @@ import numpy as np
 
 
 class IndoorDataset(Dataset):
-    def __init__(self, data, bssid_feats, rssi_feats, flag='TRAIN'):
+    def __init__(self, data, bssid_feats, rssi_feats, beacon_bssid_feats, beacon_rssi_feats, flag='TRAIN'):
         self.data = data
         self.flag = flag
         self.bssid_feats = bssid_feats
         self.rssi_feats = rssi_feats
+        self.beacon_bssid_feats = beacon_bssid_feats
+        self.beacon_rssi_feats = beacon_rssi_feats
 
     def __len__(self):
         return self.data.shape[0]
@@ -25,6 +27,8 @@ class IndoorDataset(Dataset):
             return {
                 'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(int),
                 'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(np.float32),
+                'BEACON_BSSID_FEATS': tmp_data[self.beacon_bssid_feats].values.astype(int),
+                'BEACON_RSSI_FEATS': tmp_data[self.beacon_rssi_feats].values.astype(np.float32),
                 'site_id': tmp_data['site_id'].astype(int),
                 'x': tmp_data['x'],
                 'y': tmp_data['y'],
@@ -34,6 +38,8 @@ class IndoorDataset(Dataset):
             return {
                 'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(int),
                 'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(np.float32),
+                'BEACON_BSSID_FEATS': tmp_data[self.beacon_bssid_feats].values.astype(int),
+                'BEACON_RSSI_FEATS': tmp_data[self.beacon_rssi_feats].values.astype(np.float32),
                 'site_id': tmp_data['site_id'].astype(int)
             }
 
@@ -51,6 +57,9 @@ class IndoorDataModule(LightningDataModule):
         self.bssid_feats = [f'bssid_{i}' for i in range(Config.num_wifi_feats)]
         self.rssi_feats = [f'rssi_{i}' for i in range(Config.num_wifi_feats)]
 
+        self.beacon_bssid_feats = [f'beacon_id_{i}' for i in range(Config.num_beacon_feats)]
+        self.beacon_rssi_feats = [f'beacon_rssi_{i}' for i in range(Config.num_beacon_feats)]
+
     def _init_wifi_bssids(self):
         wifi_bssids = []
         for i in range(100):
@@ -60,9 +69,20 @@ class IndoorDataModule(LightningDataModule):
         self.wifi_bssids = list(set(wifi_bssids))
         self.wifi_bssids_size = len(self.wifi_bssids)
 
+        beacon_bssids = []
+        for i in range(100):
+            beacon_bssids += self.train_data[f'beacon_id_{i}'].values.tolist()
+            beacon_bssids += self.test_data[f'beacon_id_{i}'].values.tolist()
+
+        self.beacon_bssids = list(set(beacon_bssids))
+        self.beacon_bssids_size = len(self.beacon_bssids)
+
     def _init_transforms(self):
         self.wifi_bssids_encoder = LabelEncoder()
         self.wifi_bssids_encoder.fit(self.wifi_bssids)
+
+        self.beacon_bssids_encoder = LabelEncoder()
+        self.beacon_bssids_encoder.fit(self.beacon_bssids)
 
         self.site_id_encoder = LabelEncoder()
         self.site_id_encoder = self.site_id_encoder.fit(
@@ -71,10 +91,16 @@ class IndoorDataModule(LightningDataModule):
         self.rssi_normalizer = StandardScaler()
         self.rssi_normalizer.fit(self.train_data[self.rssi_feats])
 
+        self.beacon_rssi_normalizer = StandardScaler()
+        self.beacon_rssi_normalizer.fit(self.train_data[self.beacon_rssi_feats])
+
     def _transform(self, data):
         for bssid_feat in self.bssid_feats:
             data[bssid_feat] = self.wifi_bssids_encoder.transform(
                 data[bssid_feat])
+        for beacon_bssid_feat in self.beacon_bssid_feats:
+            data[beacon_bssid_feat] = self.beacon_bssids_encoder.transform(
+                data[beacon_bssid_feat])
         data['site_id'] = self.site_id_encoder.transform(data['site_id'])
         data[self.rssi_feats] = self.rssi_normalizer.transform(
             data[self.rssi_feats])
@@ -118,14 +144,14 @@ class IndoorDataModule(LightningDataModule):
                 val_df = self.train_data[self.train_data['kfold'] ==
                                          self.fold_num].reset_index(drop=True)
             self.train = IndoorDataset(
-                train_df, self.bssid_feats, self.rssi_feats, flag="TRAIN")
+                train_df, self.bssid_feats, self.rssi_feats, self.beacon_bssid_feats, self.beacon_rssi_feats, flag="TRAIN")
             self.val = IndoorDataset(
-                val_df, self.bssid_feats, self.rssi_feats, flag="TRAIN")
+                val_df, self.bssid_feats, self.rssi_feats, self.beacon_bssid_feats, self.beacon_rssi_feats, flag="TRAIN")
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
             self.test = IndoorDataset(
-                self.test_data, self.bssid_feats, self.rssi_feats, flag="TEST")
+                self.test_data, self.bssid_feats, self.rssi_feats, self.beacon_bssid_feats, self.beacon_rssi_feats, flag="TEST")
 
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=Config.train_batch_size, num_workers=Config.num_workers, shuffle=True, pin_memory=True)

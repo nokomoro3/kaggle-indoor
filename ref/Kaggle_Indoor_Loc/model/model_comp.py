@@ -62,6 +62,8 @@ class IndoorLocModel(LightningModule):
         loss = torch.mean(torch.stack([output['loss']
                           for output in outputs], dim=0))
 
+        self.log('train_loss', loss, prog_bar=True)
+
         if Config.neptune:
             neptune.log_metric('train_loss', loss)
             neptune.log_metric('train_loss_xy', loss_xy)
